@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saint-Avertin Run Club - AI Training Plans</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    html {
+      scroll-behavior: smooth;
+      scrollbar-width: none; /* For Firefox */
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0B1226;
+      -ms-overflow-style: none;  /* For Internet Explorer and Edge */
+    }
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    .glow-shadow {
+      box-shadow: 0 0 15px 5px rgba(0, 175, 237, 0.3), 0 0 5px 1px rgba(0, 175, 237, 0.2);
+    }
+     .glow-shadow-pink {
+      box-shadow: 0 0 20px 5px rgba(255, 56, 177, 0.3), 0 0 8px 1px rgba(255, 56, 177, 0.2);
+    }
+    .glow-shadow-hover:hover {
+      box-shadow: 0 0 25px 8px rgba(0, 175, 237, 0.4), 0 0 10px 2px rgba(0, 175, 237, 0.3);
+    }
+     .glow-shadow-pink-hover:hover {
+      box-shadow: 0 0 30px 8px rgba(255, 56, 177, 0.4), 0 0 12px 2px rgba(255, 56, 177, 0.3);
+    }
+    .print-container { display: none; }
+    @media print {
+      body {
+        background-color: white !important;
+        color: black !important;
+      }
+      .no-print { display: none !important; }
+      .print-container { 
+        display: block !important;
+        margin: 20px;
+       }
+       .print-bg-white { background-color: white !important; }
+       .print-text-black { color: black !important; }
+       .print-border { border: 1px solid #e2e8f0; }
+    }
+
+    /* Input range styles */
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        background: #00AFED;
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid white;
+        margin-top: -6px; /* You need to specify a margin in Chrome, but in Firefox and IE it is automatic */
+    }
+
+    input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #00AFED;
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+    
+    .animate-fade-in-scroll {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0"
+  }
+}
+</script>
+</head>
+<body class="bg-[#0B1226] text-gray-200">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
