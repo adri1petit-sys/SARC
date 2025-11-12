@@ -1,7 +1,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const getAiClient = () => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        // This error will be caught by the calling functions and displayed to the user.
+        throw new Error("La clé API n'est pas configurée. Veuillez configurer la variable d'environnement API_KEY sur votre plateforme d'hébergement (ex: Vercel).");
+    }
+    return new GoogleGenAI({ apiKey });
+};
+
 
 const MAX_RETRIES = 2;
 
@@ -28,6 +36,7 @@ const formatFeedbackForAI = (plan: SavedPlan): string => {
 
 
 export async function generateDetailedTrainingPlan(formData: FormData): Promise<DetailedTrainingPlan> {
+  const ai = getAiClient();
   const prompt = `
     You are an expert French running coach ("entraîneur diplômé FFA") for the Saint-Avertin Run Club. Your mission is to create a professional, progressive, and scientifically sound training plan.
 
@@ -165,8 +174,13 @@ export async function generateDetailedTrainingPlan(formData: FormData): Promise<
     } catch (error) {
         console.error(`Erreur lors de la génération (Tentative ${attempt}/${MAX_RETRIES}):`, error);
         if (attempt === MAX_RETRIES) {
-            if (error instanceof Error && (error.message.includes("vide") || error.message.includes("invalide"))) {
-                throw error;
+            if (error instanceof Error) {
+                 if (error.message.includes("API key") || error.message.includes("API_KEY")) {
+                    throw new Error("La clé API n'est pas configurée correctement sur le serveur. Veuillez contacter l'administrateur.");
+                 }
+                 if (error.message.includes("vide") || error.message.includes("invalide")) {
+                    throw error;
+                 }
             }
             throw new Error("La génération du plan a échoué, même après plusieurs tentatives. L'IA a peut-être du mal à créer un plan cohérent pour ce profil. Essayez de vérifier la cohérence de vos informations (niveau, chronos, allure EF) et simplifiez la demande si possible.");
         }
@@ -178,6 +192,7 @@ export async function generateDetailedTrainingPlan(formData: FormData): Promise<
 }
 
 export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<OptimizationSuggestion[]> {
+  const ai = getAiClient();
   const formattedFeedback = formatFeedbackForAI(plan);
   const prompt = `
     You are an elite-level French running coach reviewing a runner's progress mid-plan. Your task is to analyze their profile, their assigned plan, and their feedback on completed sessions to provide concrete, actionable suggestions for optimizing the *remainder* of their plan.
@@ -242,6 +257,9 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
       }
   } catch(error) {
     console.error("Erreur lors de l'optimisation du plan:", error);
+    if (error instanceof Error && (error.message.includes("API key") || error.message.includes("API_KEY"))) {
+        throw new Error("La clé API n'est pas configurée correctement sur le serveur. Veuillez contacter l'administrateur.");
+    }
     throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
   }
 }
