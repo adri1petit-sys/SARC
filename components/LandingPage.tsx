@@ -76,50 +76,31 @@ const HeroSection: React.FC<{ onAuthRequest: () => void }> = ({ onAuthRequest })
 );
 
 const ClubInfoSection = () => (
-    <section className="py-16 bg-[#0B1226]">
+    <section className="py-20 md:py-24 bg-[#0B1226]">
         <div className="container mx-auto px-6">
-            <div className="grid md:grid-cols-2 gap-12 items-stretch">
-                <div className="animate-fade-in-scroll flex flex-col justify-between">
+            <div className="grid md:grid-cols-2 gap-16 md:gap-12 items-center">
+                <div className="animate-fade-in-scroll flex flex-col justify-center gap-12">
                     <div>
-                        <h2 className="text-4xl md:text-6xl font-bold text-white leading-tight">2 frères, 1 même objectif. <span className="text-[#00AFED]">Partager leur passion.</span></h2>
-                        <p className="mt-6 text-lg md:text-xl text-gray-300">
+                        <h2 className="text-5xl md:text-6xl font-bold text-white leading-tight">2 frères, 1 même objectif. <span className="text-[#00AFED]">Partager leur passion.</span></h2>
+                        <p className="mt-6 text-xl md:text-2xl text-gray-300 leading-relaxed">
                             Créé en septembre 2024, le Saint-Avertin Run Club rassemble plus de 400 passionnés autour d’un état d’esprit unique : progresser ensemble dans la bonne humeur, quel que soit le niveau. Chaque séance est un moment de partage, d’entraide et de dépassement collectif.
                         </p>
                     </div>
-                    <div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                            <div className="bg-white/5 p-6 md:p-8 rounded-xl border border-white/10 text-center flex flex-col justify-center items-center text-[#FF38B1]">
-                                <HeartIcon /> 
-                                <h3 className="text-2xl md:text-3xl font-semibold mt-4 text-white">Passion</h3>
-                                <p className="text-base md:text-lg text-gray-400 mt-1">Bienveillance et progression</p>
-                            </div>
-                            <div className="bg-white/5 p-6 md:p-8 rounded-xl border border-white/10 text-center flex flex-col justify-center items-center text-[#FF38B1]">
-                                <ChartIcon /> 
-                                <h3 className="text-2xl md:text-3xl font-semibold mt-4 text-white">Progression</h3>
-                                <p className="text-base md:text-lg text-gray-400 mt-1">Encadrement et plans adaptés</p>
-                            </div>
-                            <div className="bg-white/5 p-6 md:p-8 rounded-xl border border-white/10 text-center flex flex-col justify-center items-center text-[#FF38B1]">
-                                <UsersIcon /> 
-                                <h3 className="text-2xl md:text-3xl font-semibold mt-4 text-white">Communauté</h3>
-                                <p className="text-base md:text-lg text-gray-400 mt-1">400+ coureurs soudés</p>
-                            </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
+                        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 glow-shadow-pink">
+                            <h3 className="text-2xl font-bold text-[#FF38B1]">Mercredi 19h00</h3>
+                            <p className="text-lg mt-1">Stade des Grands Champs</p>
+                            <p className="mt-2 text-base text-gray-400">Fractionné / Piste / VMA</p>
                         </div>
-                        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
-                            <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                                <h3 className="text-xl font-bold text-[#00AFED]">Mercredi 19h00</h3>
-                                <p className="text-base">Stade des Grands Champs</p>
-                                <p className="mt-1 text-base text-gray-400">Fractionné / Piste / VMA</p>
-                            </div>
-                            <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                                <h3 className="text-xl font-bold text-[#00AFED]">Dimanche 10h00</h3>
-                                <p className="text-base">Bois des Hâtes</p>
-                                <p className="mt-1 text-base text-gray-400">~10 km à 6:00/km, sortie conviviale</p>
-                            </div>
+                        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 glow-shadow-pink">
+                            <h3 className="text-2xl font-bold text-[#FF38B1]">Dimanche 10h00</h3>
+                            <p className="text-lg mt-1">Bois des Hâtes</p>
+                            <p className="mt-2 text-base text-gray-400">~10 km à 6:00/km, sortie conviviale</p>
                         </div>
                     </div>
                 </div>
                 <div className="animate-fade-in-scroll" style={{ transitionDelay: '0.2s' }}>
-                    <div className="relative h-full min-h-[300px]">
+                    <div className="relative h-full">
                         <img src="https://i.postimg.cc/13tmGfDk/IMG-9732-2.jpg" alt="Fondateurs du club" className="rounded-2xl shadow-2xl w-full h-full object-cover" />
                          <div className="absolute -bottom-4 -right-4 bg-[#183C89] px-4 py-2 rounded-lg border border-white/10 text-sm font-semibold">Les Fondateurs</div>
                     </div>
@@ -146,7 +127,7 @@ const GallerySection = () => {
                 <h2 className="text-3xl sm:text-4xl font-bold text-white animate-fade-in-scroll">Nos Moments Forts</h2>
                 <p className="mt-4 text-base sm:text-lg text-gray-300 animate-fade-in-scroll">Découvrez l’ambiance unique de nos sorties et entraînements. Une communauté passionnée qui progresse ensemble.</p>
             </div>
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-scroll">
+            <div className="mt-8 grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 animate-fade-in-scroll">
                 {images.map((img, i) => (
                     <div key={i} className="group relative overflow-hidden rounded-xl aspect-square" style={{ transitionDelay: `${i * 100}ms`}}>
                         <img src={img.src} alt={img.alt} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />

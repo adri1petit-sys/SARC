@@ -113,7 +113,9 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set(savedPlan.plan.plan.map(w => w.semaine)));
 
     const { plan, userProfile, completionStatus, id: planId } = savedPlan;
-    const hasCompletedSessions = Object.values(completionStatus).some(s => s.completed);
+    // FIX: Explicitly cast the item 's' to SessionFeedback.
+    // TypeScript was inferring 's' as 'unknown' type, causing a type error when accessing 's.completed'.
+    const hasCompletedSessions = Object.values(completionStatus).some(s => (s as SessionFeedback).completed);
 
 
     const toggleWeek = (weekNumber: number) => {

@@ -2,10 +2,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion } from '../types';
 
 const getAiClient = () => {
-    const apiKey = process.env.API_KEY;
+    // FIX: Use VITE_ prefix for client-side environment variables as required by Vite.
+    const apiKey = process.env.VITE_API_KEY;
     if (!apiKey) {
-        // This error will be caught by the calling functions and displayed to the user.
-        throw new Error("La clé API n'est pas configurée. Veuillez configurer la variable d'environnement API_KEY sur votre plateforme d'hébergement (ex: Vercel).");
+        // FIX: Updated error message to reference the correct variable name.
+        throw new Error("La clé API n'est pas configurée. Veuillez configurer la variable d'environnement VITE_API_KEY sur votre plateforme d'hébergement (ex: Vercel).");
     }
     return new GoogleGenAI({ apiKey });
 };
@@ -175,8 +176,9 @@ export async function generateDetailedTrainingPlan(formData: FormData): Promise<
         console.error(`Erreur lors de la génération (Tentative ${attempt}/${MAX_RETRIES}):`, error);
         if (attempt === MAX_RETRIES) {
             if (error instanceof Error) {
-                 if (error.message.includes("API key") || error.message.includes("API_KEY")) {
-                    throw new Error("La clé API n'est pas configurée correctement sur le serveur. Veuillez contacter l'administrateur.");
+                 // FIX: Check for the new variable name in the error message.
+                 if (error.message.includes("API key") || error.message.includes("VITE_API_KEY")) {
+                    throw error; // Re-throw the descriptive error from getAiClient
                  }
                  if (error.message.includes("vide") || error.message.includes("invalide")) {
                     throw error;
@@ -257,8 +259,9 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
       }
   } catch(error) {
     console.error("Erreur lors de l'optimisation du plan:", error);
-    if (error instanceof Error && (error.message.includes("API key") || error.message.includes("API_KEY"))) {
-        throw new Error("La clé API n'est pas configurée correctement sur le serveur. Veuillez contacter l'administrateur.");
+    // FIX: Check for the new variable name in the error message.
+    if (error instanceof Error && (error.message.includes("API key") || error.message.includes("VITE_API_KEY"))) {
+        throw error; // Re-throw the descriptive error from getAiClient
     }
     throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
   }
