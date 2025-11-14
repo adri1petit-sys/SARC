@@ -120,3 +120,20 @@ export interface OptimizationSuggestion {
     suggestion: string;
     reasoning: string;
 }
+
+// New types for Chatbot
+export interface GroundingSource {
+    uri: string;
+    title: string;
+}
+
+export interface ChatMessagePart {
+    text: string;
+}
+
+export interface ChatMessage {
+    role: "user" | "model";
+    parts: ChatMessagePart[];
+    sources?: GroundingSource[];
+    isLoading?: boolean;
+}

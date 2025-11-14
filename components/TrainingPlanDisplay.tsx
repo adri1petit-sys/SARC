@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { DetailedTrainingPlan, DetailedSession, FormData, SavedPlan, CompletionStatus, SessionFeedback, OptimizationSuggestion } from '../types';
+import { getSessionSuggestion } from '../services/geminiService';
 import FeedbackModal from './FeedbackModal';
 
 const getIntensityColor = (type: string) => {
@@ -17,9 +18,68 @@ const FeedbackIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
 );
 
-const LightbulbIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-);
+const SessionSuggestionModal: React.FC<{ session: DetailedSession, onClose: () => void }> = ({ session, onClose }) => {
+    const [query, setQuery] = useState('');
+    const [suggestion, setSuggestion] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleGenerateSuggestion = async () => {
+        if (!query) return;
+        setIsLoading(true);
+        setError('');
+        setSuggestion('');
+        try {
+            const result = await getSessionSuggestion(session, query);
+            setSuggestion(result);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[70] animate-fade-in"
+            onClick={onClose}
+        >
+            <div 
+                className="bg-gradient-to-br from-[#183C89] to-[#0a1024] border border-white/20 rounded-2xl p-8 max-w-lg w-11/12 shadow-2xl"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-2xl font-bold text-white">Ajuster la séance</h3>
+                    <button onClick={onClose} className="text-3xl text-gray-400 hover:text-white">&times;</button>
+                </div>
+                <div className="mb-4 bg-black/20 p-3 rounded-lg border border-white/10">
+                    <p className="font-semibold text-base text-gray-300">{session.jour} - {session.type} ({session.volume} km)</p>
+                    <p className="text-sm text-gray-400">{session.contenu}</p>
+                </div>
+                <textarea 
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Ex: Il pleut, que puis-je faire à la place ?"
+                    className="w-full h-24 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#FF38B1]"
+                />
+                <button 
+                    onClick={handleGenerateSuggestion} 
+                    disabled={isLoading || !query}
+                    className="w-full mt-4 px-8 py-3 text-lg font-semibold text-white rounded-full bg-[#FF38B1] transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-[#FF38B1]/50 disabled:bg-gray-600 disabled:cursor-not-allowed glow-shadow-pink-hover"
+                >
+                    {isLoading ? 'Génération en cours...' : '🤖 Obtenir une suggestion'}
+                </button>
+                {error && <p className="text-red-400 text-sm mt-4 text-center">{error}</p>}
+                {suggestion && (
+                    <div className="mt-6 pt-4 border-t border-white/10 space-y-2">
+                        <h4 className="font-semibold text-white">Suggestion de l'IA :</h4>
+                        <div className="prose prose-invert prose-sm text-gray-300" dangerouslySetInnerHTML={{ __html: suggestion.replace(/\n/g, '<br />') }} />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 
 const SessionCard: React.FC<{ session: DetailedSession, feedback: SessionFeedback | undefined, onToggle: () => void, onInfoClick: () => void }> = ({ session, feedback, onToggle, onInfoClick }) => {
@@ -108,6 +168,7 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
 }) => {
     const [selectedSession, setSelectedSession] = useState<{session: DetailedSession, feedback: SessionFeedback | undefined} | null>(null);
     const [feedbackTarget, setFeedbackTarget] = useState<{ weekIndex: number, sessionIndex: number, session: DetailedSession } | null>(null);
+    const [suggestionTarget, setSuggestionTarget] = useState<DetailedSession | null>(null);
 
     const [showCopied, setShowCopied] = useState(false);
     const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set(savedPlan.plan.plan.map(w => w.semaine)));
@@ -292,6 +353,13 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                 />
             )}
             
+            {suggestionTarget && (
+                <SessionSuggestionModal
+                    session={suggestionTarget}
+                    onClose={() => setSuggestionTarget(null)}
+                />
+            )}
+
             {selectedSession && (
                 <div 
                     className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in"
@@ -340,6 +408,18 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                                     )}
                                 </div>
                             )}
+
+                             <div className="mt-6 pt-4 border-t border-white/10">
+                                <button 
+                                    onClick={() => {
+                                        setSelectedSession(null);
+                                        setSuggestionTarget(selectedSession.session);
+                                    }}
+                                    className="w-full text-center px-4 py-2 text-sm font-semibold text-white rounded-full bg-[#FF38B1]/80 hover:bg-[#FF38B1] transition-all"
+                                >
+                                    🤖 Demander un ajustement à l'IA
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

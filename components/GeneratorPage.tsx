@@ -59,6 +59,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         terrain: Terrain.ROAD,
         notes: ""
     });
+    const [useThinkingMode, setUseThinkingMode] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
@@ -70,7 +71,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         setProgress(0);
         setLoadingMessage("Analyse de votre profil...");
         try {
-            const generatedPlan = await generateDetailedTrainingPlan(formData);
+            const generatedPlan = await generateDetailedTrainingPlan(formData, useThinkingMode);
             setProgress(100);
             onPlanGenerated(generatedPlan, formData);
         } catch (err) {
@@ -81,6 +82,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
 
     useEffect(() => {
         if (isGenerating) {
+            const duration = useThinkingMode ? 600 : 300;
             const interval = setInterval(() => {
                 setProgress(prev => {
                     const newProgress = prev + (100 - prev) * 0.05;
@@ -88,16 +90,16 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                         clearInterval(interval);
                         return 99;
                     }
-                    if (newProgress < 30) setLoadingMessage("Analyse de votre profil...");
-                    else if (newProgress < 60) setLoadingMessage("Calcul de vos allures...");
-                    else if (newProgress < 90) setLoadingMessage("Construction du plan...");
+                    if (newProgress < 25) setLoadingMessage("Analyse de votre profil...");
+                    else if (newProgress < 50) setLoadingMessage("Calcul de vos allures...");
+                    else if (newProgress < 75) setLoadingMessage(useThinkingMode ? "Réflexion approfondie..." : "Construction du plan...");
                     else setLoadingMessage("Finalisation...");
                     return newProgress;
                 });
-            }, 300);
+            }, duration);
             return () => clearInterval(interval);
         }
-    }, [isGenerating]);
+    }, [isGenerating, useThinkingMode]);
 
     if (isGenerating) {
          return (
@@ -239,7 +241,20 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                     </div>
                     <label className="block mb-2 text-base text-gray-300">Avez-vous des blessures récentes ou des points de vigilance à nous communiquer ?</label>
                     <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit, préférence pour 3 sorties/semaine, etc. (Facultatif)"></textarea>
-                </div>
+
+                    <div className="mt-8 pt-6 border-t border-white/10">
+                        <div className="flex items-center justify-between p-4 rounded-lg bg-black/20">
+                            <div>
+                                <label htmlFor="thinking-mode" className="font-semibold text-white">🧠 Mode Réflexion Avancée</label>
+                                <p className="text-sm text-gray-400">Analyse plus poussée pour un plan ultra-personnalisé (plus lent).</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="thinking-mode" checked={useThinkingMode} onChange={e => setUseThinkingMode(e.target.checked)} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00AFED]"></div>
+                            </label>
+                        </div>
+                    </div>
+                 </div>
             )
         }
     }

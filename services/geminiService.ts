@@ -1,10 +1,15 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion } from '../types';
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion, DetailedSession, ChatMessage } from '../types';
 
 // FIX: Corrected to use process.env.API_KEY to access the Gemini API key.
 const getAiClient = () => {
     // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
     const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      // In a real app, you might want to handle this more gracefully.
+      // For this project, the error is thrown to be caught by the UI.
+      throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
+    }
     return new GoogleGenAI({ apiKey });
 };
 
@@ -33,7 +38,7 @@ const formatFeedbackForAI = (plan: SavedPlan): string => {
 };
 
 
-export async function generateDetailedTrainingPlan(formData: FormData): Promise<DetailedTrainingPlan> {
+export async function generateDetailedTrainingPlan(formData: FormData, useThinkingMode: boolean): Promise<DetailedTrainingPlan> {
   const ai = getAiClient();
   const prompt = `
     You are an expert French running coach ("entraîneur diplômé FFA") for the Saint-Avertin Run Club. Your mission is to create a professional, progressive, and scientifically sound training plan.
@@ -92,70 +97,77 @@ export async function generateDetailedTrainingPlan(formData: FormData): Promise<
     - The 'repartition' object must have 'ef' and 'intensite' as numbers.
   `;
 
+  const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
+  const config: any = {
+      responseMimeType: "application/json",
+      responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+              plan: {
+                  type: Type.ARRAY,
+                  description: "Array of weekly plans.",
+                  items: {
+                      type: Type.OBJECT,
+                      properties: {
+                          semaine: { type: Type.INTEGER },
+                          jours: {
+                              type: Type.ARRAY,
+                              items: {
+                                  type: Type.OBJECT,
+                                  properties: {
+                                      jour: { type: Type.STRING },
+                                      type: { type: Type.STRING },
+                                      contenu: { type: Type.STRING },
+                                      objectif: { type: Type.STRING },
+                                      volume: { type: Type.NUMBER },
+                                      allure: { type: Type.STRING },
+                                      frequenceCardiaque: { type: Type.STRING },
+                                      rpe: { type: Type.STRING },
+                                  },
+                                  required: ["jour", "type", "contenu", "objectif", "volume"],
+                              },
+                          },
+                          volumeTotal: { type: Type.NUMBER },
+                          repartition: {
+                              type: Type.OBJECT,
+                              properties: {
+                                  ef: { type: Type.NUMBER },
+                                  intensite: { type: Type.NUMBER }
+                              },
+                              required: ["ef", "intensite"]
+                          },
+                          resume: { type: Type.STRING },
+                      },
+                      required: ["semaine", "jours", "volumeTotal", "resume", "repartition"],
+                  },
+              },
+              alluresReference: {
+                type: Type.OBJECT,
+                properties: {
+                  ef: { type: Type.STRING },
+                  seuil: { type: Type.STRING },
+                  as10: { type: Type.STRING },
+                  as21: { type: Type.STRING },
+                  as42: { type: Type.STRING },
+                  vma: { type: Type.STRING },
+                },
+                required: ["ef", "seuil", "as10", "as21", "as42", "vma"]
+              }
+          },
+          required: ["plan", "alluresReference"],
+      },
+  };
+
+  if (useThinkingMode) {
+      config.thinkingConfig = { thinkingBudget: 32768 };
+  }
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: model,
         contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                  plan: {
-                      type: Type.ARRAY,
-                      description: "Array of weekly plans.",
-                      items: {
-                          type: Type.OBJECT,
-                          properties: {
-                              semaine: { type: Type.INTEGER },
-                              jours: {
-                                  type: Type.ARRAY,
-                                  items: {
-                                      type: Type.OBJECT,
-                                      properties: {
-                                          jour: { type: Type.STRING },
-                                          type: { type: Type.STRING },
-                                          contenu: { type: Type.STRING },
-                                          objectif: { type: Type.STRING },
-                                          volume: { type: Type.NUMBER },
-                                          allure: { type: Type.STRING },
-                                          frequenceCardiaque: { type: Type.STRING },
-                                          rpe: { type: Type.STRING },
-                                      },
-                                      required: ["jour", "type", "contenu", "objectif", "volume"],
-                                  },
-                              },
-                              volumeTotal: { type: Type.NUMBER },
-                              repartition: {
-                                  type: Type.OBJECT,
-                                  properties: {
-                                      ef: { type: Type.NUMBER },
-                                      intensite: { type: Type.NUMBER }
-                                  },
-                                  required: ["ef", "intensite"]
-                              },
-                              resume: { type: Type.STRING },
-                          },
-                          required: ["semaine", "jours", "volumeTotal", "resume", "repartition"],
-                      },
-                  },
-                  alluresReference: {
-                    type: Type.OBJECT,
-                    properties: {
-                      ef: { type: Type.STRING },
-                      seuil: { type: Type.STRING },
-                      as10: { type: Type.STRING },
-                      as21: { type: Type.STRING },
-                      as42: { type: Type.STRING },
-                      vma: { type: Type.STRING },
-                    },
-                    required: ["ef", "seuil", "as10", "as21", "as42", "vma"]
-                  }
-              },
-              required: ["plan", "alluresReference"],
-          },
-        },
+        config: config,
       });
 
       const jsonText = response.text.trim();
@@ -247,6 +259,7 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
         throw new Error("L'IA n'a pas pu générer de suggestions pour le moment.");
       }
       
+      // Fix: Corrected typo from `jsontext` to `jsonText`.
       const suggestions = JSON.parse(jsonText);
 
       if (Array.isArray(suggestions)) {
@@ -262,4 +275,58 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
     }
     throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
   }
+}
+
+export async function generateChatResponse(history: ChatMessage[], newMessage: string, useGoogleSearch: boolean): Promise<GenerateContentResponse> {
+    const ai = getAiClient();
+
+    const config: any = {};
+    if (useGoogleSearch) {
+        config.tools = [{googleSearch: {}}];
+    }
+    
+    // The Gemini API expects the history in the `contents` field.
+    const contents = [...history, { role: 'user', parts: [{ text: newMessage }] }];
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+        config: {
+            ...config,
+            systemInstruction: "You are the SARC AI Coach, a friendly and knowledgeable running expert for the Saint-Avertin Run Club. Answer questions about running, training plans, nutrition, and club activities. Be encouraging and helpful. Your responses should be in French.",
+        }
+    });
+
+    return response;
+}
+
+export async function getSessionSuggestion(session: DetailedSession, userQuery: string): Promise<string> {
+  const ai = getAiClient();
+  const prompt = `
+    You are a helpful and creative French running coach. A runner needs an adjustment for a specific training session.
+    
+    **Original Session:**
+    - Day: ${session.jour}
+    - Type: ${session.type}
+    - Content: ${session.contenu}
+    - Objective: ${session.objectif}
+    - Volume: ${session.volume} km
+
+    **Runner's Request:** "${userQuery}"
+
+    **Your Task:**
+    Provide a concise, practical, and safe alternative session. Explain briefly why it's a good alternative. Be encouraging. Your response should be a direct answer to the runner, formatted in Markdown.
+    
+    Example response:
+    "Bien sûr ! S'il pleut et que vous ne pouvez pas faire votre fractionné sur piste, voici une bonne alternative pour travailler votre VMA à l'abri :
+    **Tapis de course :** Faites 15 min d'échauffement, puis 8x (400m à votre allure VMA / 200m de récupération en footing lent). Terminez par 10 min de retour au calme.
+    Cela vous permettra de réaliser la séance d'intensité prévue en toute sécurité."
+  `;
+  
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt
+  });
+
+  return response.text;
 }

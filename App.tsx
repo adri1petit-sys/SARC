@@ -3,6 +3,7 @@ import type { User } from './types';
 import LandingPage from './components/LandingPage';
 import DashboardPage from './components/DashboardPage';
 import AuthPage from './components/AuthPage';
+import Chatbot from './components/Chatbot';
 import { getCurrentUser, logout } from './services/authService';
 
 const Logo = () => (
@@ -82,6 +83,8 @@ const App: React.FC = () => {
                     onLoginSuccess={handleLoginSuccess}
                 />
             )}
+
+            {currentUser && <Chatbot />}
 
             <footer className="container mx-auto px-6 py-6 text-center text-gray-400 border-t border-white/10 no-print">
                 <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club. Propulsé par l'IA.</p>
