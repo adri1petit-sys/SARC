@@ -1,11 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion } from '../types';
 
+// FIX: Corrected to use process.env.API_KEY to access the Gemini API key.
 const getAiClient = () => {
+    // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        throw new Error("La clé API n'est pas configurée. Veuillez configurer la variable d'environnement API_KEY sur votre plateforme d'hébergement (ex: Vercel).");
-    }
     return new GoogleGenAI({ apiKey });
 };
 
@@ -159,7 +158,7 @@ export async function generateDetailedTrainingPlan(formData: FormData): Promise<
         },
       });
 
-      const jsonText = response.text?.trim();
+      const jsonText = response.text.trim();
       if (!jsonText) {
         throw new Error("L'IA a renvoyé une réponse vide. Veuillez simplifier votre demande ou réessayer.");
       }
@@ -174,8 +173,9 @@ export async function generateDetailedTrainingPlan(formData: FormData): Promise<
         console.error(`Erreur lors de la génération (Tentative ${attempt}/${MAX_RETRIES}):`, error);
         if (attempt === MAX_RETRIES) {
             if (error instanceof Error) {
+                 // FIX: Updated error message to reference the correct environment variable.
                  if (error.message.includes("API key") || error.message.includes("API_KEY")) {
-                    throw error; // Re-throw the descriptive error from getAiClient
+                    throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
                  }
                  if (error.message.includes("vide") || error.message.includes("invalide")) {
                     throw error;
@@ -242,7 +242,7 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
         },
       });
 
-      const jsonText = response.text?.trim();
+      const jsonText = response.text.trim();
       if (!jsonText) {
         throw new Error("L'IA n'a pas pu générer de suggestions pour le moment.");
       }
@@ -256,8 +256,9 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
       }
   } catch(error) {
     console.error("Erreur lors de l'optimisation du plan:", error);
+    // FIX: Updated error message to reference the correct environment variable.
     if (error instanceof Error && (error.message.includes("API key") || error.message.includes("API_KEY"))) {
-        throw error; // Re-throw the descriptive error from getAiClient
+        throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
     }
     throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
   }
