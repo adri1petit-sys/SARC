@@ -117,12 +117,14 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
 
     if (error) {
         return (
-            <div className="text-center py-20 bg-red-900/20 border border-red-500 rounded-2xl p-8 animate-fade-in max-w-4xl mx-auto">
-                <h2 className="text-4xl font-bold text-red-400">Une erreur est survenue</h2>
-                <p className="text-xl text-gray-300 mt-2 max-w-2xl mx-auto">{error}</p>
-                 <div className="flex justify-center gap-4 mt-8">
-                    <button onClick={onCancel} className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors">Annuler</button>
-                    <GlowButton onClick={() => setError(null)}>Réessayer</GlowButton>
+            <div className="text-center py-10">
+                <div className="bg-black/20 backdrop-blur-md border border-[#FF38B1] rounded-3xl p-12 shadow-2xl glow-shadow-pink max-w-3xl mx-auto animate-fade-in">
+                    <h2 className="text-4xl font-bold text-[#FF38B1]">Une erreur est survenue</h2>
+                    <p className="text-xl text-gray-300 mt-4 max-w-2xl mx-auto">{error}</p>
+                    <div className="flex justify-center gap-4 mt-8">
+                        <button onClick={onCancel} className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors">Annuler</button>
+                        <GlowButton onClick={() => setError(null)}>Réessayer</GlowButton>
+                    </div>
                 </div>
             </div>
         );

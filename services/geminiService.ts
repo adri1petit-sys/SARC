@@ -1,13 +1,10 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion, DetailedSession, ChatMessage } from '../types';
 
-// FIX: Corrected to use process.env.API_KEY to access the Gemini API key.
+// As per guidelines, the API key is injected by the environment and available as process.env.API_KEY.
 const getAiClient = () => {
-    // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      // In a real app, you might want to handle this more gracefully.
-      // For this project, the error is thrown to be caught by the UI.
       throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
     }
     return new GoogleGenAI({ apiKey });
@@ -184,15 +181,9 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
     } catch (error) {
         console.error(`Erreur lors de la génération (Tentative ${attempt}/${MAX_RETRIES}):`, error);
         if (attempt === MAX_RETRIES) {
-            if (error instanceof Error) {
-                 // FIX: Updated error message to reference the correct environment variable.
-                 if (error.message.includes("API key") || error.message.includes("API_KEY")) {
-                    throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
-                 }
-                 if (error.message.includes("vide") || error.message.includes("invalide")) {
-                    throw error;
-                 }
-            }
+             if (error instanceof Error && error.message.includes("API_KEY")) {
+                throw error; // Re-throw the specific API key error to be displayed
+             }
             throw new Error("La génération du plan a échoué, même après plusieurs tentatives. L'IA a peut-être du mal à créer un plan cohérent pour ce profil. Essayez de vérifier la cohérence de vos informations (niveau, chronos, allure EF) et simplifiez la demande si possible.");
         }
     }
@@ -259,7 +250,6 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
         throw new Error("L'IA n'a pas pu générer de suggestions pour le moment.");
       }
       
-      // Fix: Corrected typo from `jsontext` to `jsonText`.
       const suggestions = JSON.parse(jsonText);
 
       if (Array.isArray(suggestions)) {
@@ -269,9 +259,8 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
       }
   } catch(error) {
     console.error("Erreur lors de l'optimisation du plan:", error);
-    // FIX: Updated error message to reference the correct environment variable.
-    if (error instanceof Error && (error.message.includes("API key") || error.message.includes("API_KEY"))) {
-        throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
+    if (error instanceof Error && error.message.includes("API_KEY")) {
+        throw error;
     }
     throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
   }
