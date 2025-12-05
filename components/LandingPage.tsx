@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import GeneratorPage from './GeneratorPage'; // This will now be handled by DashboardPage
 
@@ -90,7 +91,7 @@ const ClubInfoSection = () => (
                         <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 glow-shadow-pink">
                             <h3 className="text-2xl font-bold text-[#FF38B1]">Mercredi 19h00</h3>
                             <p className="text-lg mt-1">Stade des Grands Champs</p>
-                            <p className="mt-2 text-base text-gray-400">Fractionné / Piste / VMA</p>
+                            <p className="mt-2 text-base text-gray-400">Fractionné / Piste / VMA / Séances côtes</p>
                         </div>
                         <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 glow-shadow-pink">
                             <h3 className="text-2xl font-bold text-[#FF38B1]">Dimanche 10h00</h3>
@@ -158,7 +159,7 @@ const PartnerSection = () => (
                     <div className="bg-gradient-to-br from-[#00AFED]/20 to-transparent border border-white/10 rounded-2xl p-8 text-center">
                         <p className="text-xl font-semibold">Prêt à connaître la valeur de votre bien ?</p>
                         <div className="mt-4 flex flex-col sm:flex-row justify-center gap-4">
-                            <a href="https://laforet-saint-avertin.com" target="_blank" rel="noopener noreferrer" className="px-6 py-3 text-base font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 hover:scale-105 glow-shadow-hover">🏡 Estimer mon bien</a>
+                            <a href="https://www.laforet.com/agence-immobiliere/saint-avertin/estimer" target="_blank" rel="noopener noreferrer" className="px-6 py-3 text-base font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 hover:scale-105 glow-shadow-hover">🏡 Estimer mon bien</a>
                             <a href="https://www.laforet.com/agence-immobiliere/saint-avertin" target="_blank" rel="noopener noreferrer" className="px-6 py-3 text-base font-semibold text-white rounded-full bg-white/10 border border-white/20 transition-colors hover:bg-white/20">🏢 Découvrir l’agence</a>
                         </div>
                     </div>
@@ -176,17 +177,22 @@ const ContactSection = () => (
                 <h2 className="text-3xl sm:text-4xl font-bold text-white animate-fade-in-scroll">Rejoindre le Club</h2>
                 <p className="mt-4 text-base sm:text-lg text-gray-300 animate-fade-in-scroll">Découvrez notre communauté de coureurs passionnés et rejoignez-nous pour votre prochaine sortie.</p>
             </div>
-            <div className="mt-8 grid md:grid-cols-2 gap-12 items-start">
-                 <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 space-y-6 animate-fade-in-scroll">
-                    <h3 className="text-xl font-bold">Contact Direct</h3>
-                    <div className="flex items-center gap-4">
-                        <img src="https://i.postimg.cc/g0BPMqbT/IMG-5155-3.jpg" alt="Adrien" className="h-12 w-12 rounded-full object-cover border-2 border-[#00AFED]" />
-                        <div><p className="text-base font-semibold">Adrien</p><p className="text-sm text-gray-400">07 69 23 04 55</p></div>
+            
+            <div className="mt-8 flex justify-center animate-fade-in-scroll">
+                 <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 space-y-6 max-w-lg w-full">
+                    <h3 className="text-xl font-bold text-center">Contact Direct</h3>
+                    
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 justify-center sm:justify-start bg-white/5 p-3 rounded-lg border border-white/5">
+                            <img src="https://i.postimg.cc/g0BPMqbT/IMG-5155-3.jpg" alt="Adrien" className="h-12 w-12 rounded-full object-cover border-2 border-[#00AFED]" />
+                            <div><p className="text-base font-semibold text-white">Adrien</p><p className="text-sm text-gray-400">07 69 23 04 55</p></div>
+                        </div>
+                         <div className="flex items-center gap-4 justify-center sm:justify-start bg-white/5 p-3 rounded-lg border border-white/5">
+                            <img src="https://i.postimg.cc/jj2pJwnN/0-2433-18344-98-11303698-t6c-Hnr.jpg" alt="Vincent" className="h-12 w-12 rounded-full object-cover border-2 border-[#00AFED]" />
+                            <div><p className="text-base font-semibold text-white">Vincent</p><p className="text-sm text-gray-400">07 69 94 04 96</p></div>
+                        </div>
                     </div>
-                     <div className="flex items-center gap-4">
-                        <img src="https://i.postimg.cc/jj2pJwnN/0-2433-18344-98-11303698-t6c-Hnr.jpg" alt="Vincent" className="h-12 w-12 rounded-full object-cover border-2 border-[#00AFED]" />
-                        <div><p className="text-base font-semibold">Vincent</p><p className="text-sm text-gray-400">07 69 94 04 96</p></div>
-                    </div>
+
                     <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
                         <a href="https://chat.whatsapp.com/K6s9q2yMEYwL5Vk349Zx4J" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full px-6 py-3 text-base font-semibold text-white rounded-full bg-green-500/80 transition-colors hover:bg-green-500">
                            <WhatsAppIcon /> Rejoindre le groupe WhatsApp
@@ -195,21 +201,6 @@ const ContactSection = () => (
                             <FacebookIcon /> Suivre sur Facebook
                         </a>
                     </div>
-                </div>
-
-                <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 animate-fade-in-scroll" style={{ transitionDelay: '0.2s' }}>
-                    <form className="space-y-4">
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <input type="text" placeholder="Prénom" className="w-full bg-white/5 border border-white/10 rounded-lg p-4 outline-none focus:ring-2 focus:ring-[#FF38B1]" />
-                            <input type="text" placeholder="Nom" className="w-full bg-white/5 border border-white/10 rounded-lg p-4 outline-none focus:ring-2 focus:ring-[#FF38B1]" />
-                        </div>
-                        <input type="email" placeholder="Email" className="w-full bg-white/5 border border-white/10 rounded-lg p-4 outline-none focus:ring-2 focus:ring-[#FF38B1]" />
-                         <input type="tel" placeholder="Téléphone" className="w-full bg-white/5 border border-white/10 rounded-lg p-4 outline-none focus:ring-2 focus:ring-[#FF38B1]" />
-                        <textarea placeholder="Parlez-nous de vos objectifs ou posez-nous vos questions…" rows={4} className="w-full bg-white/5 border border-white/10 rounded-lg p-4 outline-none focus:ring-2 focus:ring-[#FF38B1]"></textarea>
-                        <button type="submit" className="w-full px-8 py-3 text-lg font-semibold text-black rounded-full bg-[#FF38B1] transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#FF38B1]/50 glow-shadow-pink-hover">
-                            Envoyer le message 🚀
-                        </button>
-                    </form>
                 </div>
             </div>
         </div>

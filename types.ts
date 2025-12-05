@@ -1,6 +1,3 @@
-
-// Fix: Define all necessary types for the application.
-
 export interface User {
     id: string;
     email: string;
@@ -27,13 +24,22 @@ export enum RunningHistory {
     MORE_THAN_FIVE_YEARS = "Plus de 5 ans",
 }
 
+export enum CurrentVolume {
+    LESS_THAN_20 = "< 20 km",
+    TWENTY_TO_FORTY = "20–40 km",
+    FORTY_TO_SIXTY = "40–60 km",
+    SIXTY_TO_EIGHTY = "60–80 km",
+    EIGHTY_TO_HUNDRED = "80–100 km",
+    MORE_THAN_HUNDRED = "> 100 km",
+}
+
 export enum Objective {
     FIVE_K = "5 km",
     TEN_K = "10 km",
     HALF_MARATHON = "Semi-Marathon",
     MARATHON = "Marathon",
     TRAIL_SHORT = "Trail Court (<42km)",
-    TRAIL_LONG = "Trail Long (>42km)",
+    ULTRA_DISTANCE = "Ultra-distance",
     MAINTENANCE = "Entretien / Plaisir",
 }
 
@@ -50,6 +56,14 @@ export enum LifeStress {
     HIGH = "Élevé (Travail intense, peu de sommeil)",
 }
 
+export interface UltraDetails {
+    type: "Marathon route" | "Trail" | "Ultra-trail";
+    distance: string;
+    targetTime: string;
+    elevationGain: string;
+    terrainType: "Peu technique" | "Mixte" | "Très technique";
+}
+
 export interface FormData {
     gender: Gender;
     age: number;
@@ -57,22 +71,26 @@ export interface FormData {
     height: number;
     level: Level;
     runningHistory: RunningHistory;
+    currentVolume: CurrentVolume;
     pb5k: string;
     pb10k: string;
     pbSemi: string;
     pbMarathon: string;
     currentPaceEF: string;
     objective: Objective;
+    ultraDetails?: UltraDetails;
     targetTime: string;
+    targetDate: string; // YYYY-MM-DD
     availabilityDays: string[];
-    duration: number;
+    duration: number; // Durée de la prépa spécifique
     terrain: Terrain;
-    lifeStress: LifeStress; // New field
+    lifeStress: LifeStress;
     notes: string;
 }
 
 export interface DetailedSession {
-    jour: string;
+    jour: string; // Lundi, Mardi...
+    date: string; // YYYY-MM-DD
     type: string;
     contenu: string;
     objectif: string;
@@ -83,15 +101,22 @@ export interface DetailedSession {
 }
 
 export interface DetailedTrainingPlan {
+    startDate: string;
+    endDate: string;
+    raceDate: string;
+    maintenanceWeeks: number;
     plan: {
         semaine: number;
+        phase: string; // "Maintien", "Développement", "Spécifique", "Affûtage", "Compétition"
+        startDate: string;
+        endDate: string;
         jours: DetailedSession[];
         volumeTotal: number;
-        resume: string;
         repartition: {
             ef: number;
             intensite: number;
         };
+        resume: string;
     }[];
     alluresReference: {
         ef: string;
@@ -101,7 +126,7 @@ export interface DetailedTrainingPlan {
         as42: string;
         vma: string;
     };
-    coachNotes?: string; // Global analysis of the strategy used
+    coachNotes?: string;
 }
 
 export interface SessionFeedback {
@@ -130,7 +155,6 @@ export interface OptimizationSuggestion {
     reasoning: string;
 }
 
-// New types for Chatbot
 export interface GroundingSource {
     uri: string;
     title: string;

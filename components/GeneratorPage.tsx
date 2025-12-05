@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress } from '../types';
-import type { FormData, DetailedTrainingPlan } from '../types';
+import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress, CurrentVolume } from '../types';
+import type { FormData, DetailedTrainingPlan, UltraDetails } from '../types';
 import { generateDetailedTrainingPlan } from '../services/geminiService';
 
 const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({ currentStep, totalSteps }) => (
@@ -46,32 +45,55 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         // Step 2
         level: Level.INTERMEDIATE,
         runningHistory: RunningHistory.ONE_TO_THREE_YEARS,
+        currentVolume: CurrentVolume.TWENTY_TO_FORTY, // Default
         // Step 3
         pb5k: '', pb10k: '', pbSemi: '', pbMarathon: '',
         currentPaceEF: '6:00/km',
         // Step 4
         objective: Objective.TEN_K,
+        ultraDetails: undefined,
         // Step 5
         targetTime: "45 minutes",
-        // Step 6
-        availabilityDays: ["Mardi", "Jeudi", "Samedi"],
-        duration: 8,
+        // Step 6: Date
+        targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 3 months out
         // Step 7
+        availabilityDays: ["Mardi", "Jeudi", "Samedi"],
+        duration: 12, // Default duration
+        // Step 8
         terrain: Terrain.ROAD,
-        lifeStress: LifeStress.MEDIUM, // Default
+        lifeStress: LifeStress.MEDIUM, 
         notes: ""
     });
+    
+    const [ultraForm, setUltraForm] = useState<UltraDetails>({
+        type: "Trail",
+        distance: "50 km",
+        targetTime: "8h00",
+        elevationGain: "1500m",
+        terrainType: "Mixte"
+    });
+
     const [useThinkingMode, setUseThinkingMode] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
     const [loadingMessage, setLoadingMessage] = useState("Analyse de votre profil...");
 
+    const isUltra = formData.objective === Objective.ULTRA_DISTANCE;
+
+    useEffect(() => {
+        if (isUltra) {
+            setFormData(prev => ({ ...prev, ultraDetails: ultraForm }));
+        } else {
+            setFormData(prev => ({ ...prev, ultraDetails: undefined }));
+        }
+    }, [isUltra, ultraForm]);
+
     const handleGenerate = async () => {
         setIsGenerating(true);
         setError(null);
         setProgress(0);
-        setLoadingMessage("Analyse du profil physiologique...");
+        setLoadingMessage("Calcul du calendrier inversé...");
         try {
             const generatedPlan = await generateDetailedTrainingPlan(formData, useThinkingMode);
             setProgress(100);
@@ -84,22 +106,23 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
 
     useEffect(() => {
         if (isGenerating) {
-            const duration = useThinkingMode ? 600 : 300;
+            const duration = useThinkingMode ? 6000 : 3000; 
+            const intervalTime = 100;
+            const steps = duration / intervalTime;
+            let currentStep = 0;
+
             const interval = setInterval(() => {
-                setProgress(prev => {
-                    const newProgress = prev + (100 - prev) * 0.05;
-                    if (newProgress > 99) {
-                        clearInterval(interval);
-                        return 99;
-                    }
-                    if (newProgress < 20) setLoadingMessage("Analyse physiologique & historique...");
-                    else if (newProgress < 40) setLoadingMessage("Modélisation de la charge (ACWR)...");
-                    else if (newProgress < 60) setLoadingMessage("Structure des cycles (Polarisé vs Pyramidal)...");
-                    else if (newProgress < 80) setLoadingMessage("Calibrage des séances clés & Allures...");
-                    else setLoadingMessage("Finalisation et optimisation...");
-                    return newProgress;
-                });
-            }, duration);
+                currentStep++;
+                const newProgress = (currentStep / steps) * 100;
+                setProgress(Math.min(newProgress, 99));
+
+                if (newProgress < 30) setLoadingMessage("Synchronisation des dates...");
+                else if (newProgress < 60) setLoadingMessage("Génération des semaines de maintien...");
+                else if (newProgress < 80) setLoadingMessage("Construction du cycle spécifique...");
+                else setLoadingMessage("Finalisation du calendrier...");
+
+                if (currentStep >= steps) clearInterval(interval);
+            }, intervalTime);
             return () => clearInterval(interval);
         }
     }, [isGenerating, useThinkingMode]);
@@ -133,7 +156,6 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         );
     }
 
-    const totalSteps = 8; // Added one step
     const renderStep = () => {
          switch (step) {
             case 1: return (
@@ -164,11 +186,21 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             case 2: return (
                 <div className="animate-fade-in">
                     <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏃‍♂️ Votre Expérience de Course</h2>
-                    <label className="block mb-2 text-base text-gray-300">Depuis combien de temps courez-vous régulièrement ?</label>
+                    <label className="block mb-2 text-base text-[#00AFED] font-bold">Volume hebdomadaire actuel (hors préparation)</label>
+                    <select 
+                        value={formData.currentVolume} 
+                        onChange={e => setFormData(f => ({ ...f, currentVolume: e.target.value as CurrentVolume }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED] mb-6"
+                    >
+                        {Object.values(CurrentVolume).map(vol => (
+                            <option key={vol} value={vol} className="bg-[#0B1226]">{vol}</option>
+                        ))}
+                    </select>
+                    <label className="block mb-2 text-base text-gray-300">Ancienneté</label>
                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                         {Object.values(RunningHistory).map(rh => <OptionCard key={rh} label={rh} isSelected={formData.runningHistory === rh} onClick={() => setFormData(f => ({ ...f, runningHistory: rh }))} />)}
                     </div>
-                    <label className="block mb-2 text-base text-gray-300">Quel est votre niveau actuel ?</label>
+                    <label className="block mb-2 text-base text-gray-300">Niveau</label>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {Object.values(Level).map(lvl => <OptionCard key={lvl} label={lvl} isSelected={formData.level === lvl} onClick={() => setFormData(f => ({ ...f, level: lvl }))} />)}
                     </div>
@@ -176,28 +208,22 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             )
              case 3: return (
                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⏱️ Vos Références Chronométriques</h2>
-                    <p className="text-center text-base text-gray-400 mb-6">Essentiel pour calibrer votre VMA, Seuil et Allures Spécifiques.</p>
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⏱️ Vos Références</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div>
-                            <label className="block mb-2 text-base text-gray-300">Allure en Endurance Fondamentale (EF)</label>
+                            <label className="block mb-2 text-base text-gray-300">Allure EF actuelle</label>
                             <input type="text" value={formData.currentPaceEF} onChange={e => setFormData(f => ({...f, currentPaceEF: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 6:15/km"/>
                         </div>
-                        <div />
                         <div>
-                            <label className="block mb-2 text-base text-gray-300">Meilleur temps 5 km</label>
-                            <input type="text" value={formData.pb5k} onChange={e => setFormData(f => ({...f, pb5k: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 24:30"/>
-                        </div>
-                        <div>
-                            <label className="block mb-2 text-base text-gray-300">Meilleur temps 10 km</label>
+                            <label className="block mb-2 text-base text-gray-300">PB 10 km</label>
                             <input type="text" value={formData.pb10k} onChange={e => setFormData(f => ({...f, pb10k: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 50:00"/>
                         </div>
                         <div>
-                            <label className="block mb-2 text-base text-gray-300">Meilleur temps Semi-Marathon</label>
+                            <label className="block mb-2 text-base text-gray-300">PB Semi</label>
                             <input type="text" value={formData.pbSemi} onChange={e => setFormData(f => ({...f, pbSemi: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 1:55:00"/>
                         </div>
                         <div>
-                            <label className="block mb-2 text-base text-gray-300">Meilleur temps Marathon</label>
+                            <label className="block mb-2 text-base text-gray-300">PB Marathon</label>
                             <input type="text" value={formData.pbMarathon} onChange={e => setFormData(f => ({...f, pbMarathon: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 4:15:00"/>
                         </div>
                     </div>
@@ -205,23 +231,65 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             )
             case 4: return (
                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🎯 Votre Objectif Principal</h2>
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🎯 Objectif Principal</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {Object.values(Objective).map(obj => <OptionCard key={obj} label={obj} isSelected={formData.objective === obj} onClick={() => setFormData(f => ({ ...f, objective: obj }))} />)}
                     </div>
                 </div>
             )
-            case 5: return (
-                <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏆 Quel est votre temps visé ?</h2>
-                    <p className="text-center text-base text-gray-400 mb-6">Ex: "45 min", "Sub 4h", "Finir confortablement"</p>
-                    <input type="text" value={formData.targetTime} onChange={e => setFormData(f => ({...f, targetTime: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-lg outline-none focus:ring-2 focus:ring-[#00AFED] text-center"/>
-                </div>
-            )
+            case 5: {
+                if (isUltra) {
+                    return (
+                        <div className="animate-fade-in">
+                            <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⛰️ Détails Ultra</h2>
+                            <div className="grid grid-cols-1 gap-6">
+                                <div>
+                                    <label className="block mb-2 text-base text-gray-300">Type</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {["Marathon route", "Trail", "Ultra-trail"].map(t => (
+                                            <OptionCard key={t} label={t} size="small" isSelected={ultraForm.type === t} onClick={() => setUltraForm(f => ({ ...f, type: t as any }))} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="block mb-2 text-base text-gray-300">Distance</label>
+                                        <input type="text" value={ultraForm.distance} onChange={e => setUltraForm(f => ({...f, distance: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: 80 km"/>
+                                    </div>
+                                    <div>
+                                        <label className="block mb-2 text-base text-gray-300">D+</label>
+                                        <input type="text" value={ultraForm.elevationGain} onChange={e => setUltraForm(f => ({...f, elevationGain: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: 2500m"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="animate-fade-in">
+                        <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏆 Temps visé</h2>
+                        <input type="text" value={formData.targetTime} onChange={e => setFormData(f => ({...f, targetTime: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-lg outline-none focus:ring-2 focus:ring-[#00AFED] text-center"/>
+                    </div>
+                )
+            }
             case 6: return (
                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🗓️ Votre Planification</h2>
-                     <label className="block mb-2 text-base text-gray-300">Vos jours de disponibilité pour courir ?</label>
+                     <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">📅 Date de l'Objectif</h2>
+                     <p className="text-center text-gray-400 mb-6">Sélectionnez la date de votre course. Nous calculerons automatiquement le rétro-planning.</p>
+                     <div className="max-w-xs mx-auto">
+                        <input 
+                            type="date" 
+                            value={formData.targetDate} 
+                            onChange={e => setFormData(f => ({...f, targetDate: e.target.value}))} 
+                            className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-xl text-center outline-none focus:ring-2 focus:ring-[#00AFED] calendar-picker-indicator-invert"
+                        />
+                     </div>
+                </div>
+            )
+            case 7: return (
+                <div className="animate-fade-in">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🗓️ Planification</h2>
+                     <label className="block mb-2 text-base text-gray-300">Jours de disponibilité</label>
                     <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-8">
                         {DAYS_OF_WEEK.map(day => {
                             const isSelected = formData.availabilityDays.includes(day);
@@ -231,47 +299,39 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                             }}/>
                         })}
                     </div>
-                     <label className="block mb-2 text-base text-gray-300">Durée du plan (en semaines) ?</label>
+                     <label className="block mb-2 text-base text-gray-300">Durée de la préparation spécifique (semaines)</label>
                     <div className="flex justify-center items-center space-x-4"><span className="text-2xl font-bold text-[#00AFED]">{formData.duration} semaines</span></div>
-                    <input type="range" min="4" max="24" value={formData.duration} onChange={e => setFormData(f => ({ ...f, duration: parseInt(e.target.value) }))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-4"/>
-                    <div className="flex justify-between text-sm text-gray-400 px-1 mt-2"><span>4</span><span>24</span></div>
-                </div>
-            )
-            case 7: return (
-                <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🔋 Charge Mentale & Récupération</h2>
-                    <p className="text-center text-base text-gray-400 mb-6">Pour prévenir le sur-entraînement (Ratio ACWR), nous devons connaître votre charge de vie globale.</p>
-                    <div className="grid grid-cols-1 gap-4">
-                        {Object.values(LifeStress).map(stress => (
-                            <OptionCard 
-                                key={stress} 
-                                label={stress} 
-                                isSelected={formData.lifeStress === stress} 
-                                onClick={() => setFormData(f => ({ ...f, lifeStress: stress }))} 
-                            />
-                        ))}
-                    </div>
+                    <input type="range" min="8" max="24" value={formData.duration} onChange={e => setFormData(f => ({ ...f, duration: parseInt(e.target.value) }))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-4"/>
+                    <p className="text-xs text-center text-gray-500 mt-2">Si la course est plus lointaine, des semaines de maintien seront ajoutées automatiquement avant.</p>
                 </div>
             )
             case 8: return (
-                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">💬 Préférences & Infos Complémentaires</h2>
-                    <label className="block mb-2 text-base text-gray-300">Sur quel terrain courez-vous principalement ?</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="animate-fade-in">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🔋 Charge & Préférences</h2>
+                    <label className="block mb-2 text-base text-gray-300">Charge mentale / Stress</label>
+                    <div className="grid grid-cols-1 gap-4 mb-8">
+                        {Object.values(LifeStress).map(stress => (
+                            <OptionCard key={stress} label={stress} isSelected={formData.lifeStress === stress} onClick={() => setFormData(f => ({ ...f, lifeStress: stress }))} />
+                        ))}
+                    </div>
+                     <label className="block mb-2 text-base text-gray-300">Terrain principal</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {Object.values(Terrain).map(t => <OptionCard key={t} label={t} isSelected={formData.terrain === t} onClick={() => setFormData(f => ({ ...f, terrain: t }))} />)}
                     </div>
-                    <label className="block mb-2 text-base text-gray-300">Avez-vous des blessures récentes ou des points de vigilance à nous communiquer ?</label>
-                    <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit, cycle menstruel irrégulier, préférence pour 3 sorties/semaine, etc."></textarea>
-
+                </div>
+            )
+            case 9: return (
+                 <div className="animate-fade-in">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">📝 Derniers détails</h2>
+                    <label className="block mb-2 text-base text-gray-300">Blessures ou remarques ?</label>
+                    <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit..."></textarea>
+                    
                     <div className="mt-8 pt-6 border-t border-white/10">
                         <div className="flex items-center justify-between p-4 rounded-lg bg-black/20">
-                            <div>
-                                <label htmlFor="thinking-mode" className="font-semibold text-white">🧠 Mode Réflexion Avancée (Systémique)</label>
-                                <p className="text-sm text-gray-400">Analyse profonde basée sur l'étude "Optimisation Systémique" (Banister, ACWR, Polarisation). Plus lent.</p>
-                            </div>
+                            <div><label className="font-semibold text-white">🧠 Mode Réflexion Avancée</label><p className="text-sm text-gray-400">Plus lent, meilleure optimisation systémique.</p></div>
                             <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="thinking-mode" checked={useThinkingMode} onChange={e => setUseThinkingMode(e.target.checked)} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00AFED]"></div>
+                                <input type="checkbox" checked={useThinkingMode} onChange={e => setUseThinkingMode(e.target.checked)} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-[#00AFED] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                             </label>
                         </div>
                     </div>
@@ -280,25 +340,16 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         }
     }
 
-
     return (
         <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold text-center text-white mb-2">Créez votre Plan d'Entraînement</h1>
-            <p className="text-xl text-center text-gray-300 mb-12">Un programme expert, basé sur la science de la performance et adapté à votre physiologie.</p>
-
+            <h1 className="text-4xl md:text-5xl font-bold text-center text-white mb-2">Créez votre Plan</h1>
+            <p className="text-xl text-center text-gray-300 mb-12">Programmation experte avec calendrier réel.</p>
             <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-12 shadow-2xl">
-                <ProgressIndicator currentStep={step} totalSteps={totalSteps} />
-                
+                <ProgressIndicator currentStep={step} totalSteps={9} />
                 {renderStep()}
-
                 <div className="flex justify-between items-center mt-12">
-                     <button 
-                        onClick={() => step === 1 ? onCancel() : setStep(s => s - 1)} 
-                        className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors"
-                    >
-                        {step === 1 ? 'Annuler' : 'Précédent'}
-                    </button>
-                    {step < totalSteps ? (
+                     <button onClick={() => step === 1 ? onCancel() : setStep(s => s - 1)} className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors">{step === 1 ? 'Annuler' : 'Précédent'}</button>
+                    {step < 9 ? (
                         <GlowButton onClick={() => setStep(s => s + 1)}>Suivant</GlowButton>
                     ) : (
                         <GlowButton onClick={handleGenerate}>Générer mon plan expert</GlowButton>

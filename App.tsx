@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { User } from './types';
 import LandingPage from './components/LandingPage';
@@ -72,7 +73,7 @@ const ApiKeyErrorDisplay: React.FC<{ error: string; onRetry: () => void }> = ({ 
             </div>
         </main>
         <footer className="w-full container mx-auto px-6 py-6 text-center text-gray-400 border-t border-white/10 no-print">
-            <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club. Propulsé par l'IA.</p>
+            <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club.</p>
         </footer>
     </div>
 );
@@ -170,7 +171,7 @@ const App: React.FC = () => {
             {currentUser && <Chatbot />}
 
             <footer className="container mx-auto px-6 py-6 text-center text-gray-400 border-t border-white/10 no-print">
-                <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club. Propulsé par l'IA.</p>
+                <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club.</p>
             </footer>
         </div>
     );

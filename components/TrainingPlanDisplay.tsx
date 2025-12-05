@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { DetailedTrainingPlan, DetailedSession, FormData, SavedPlan, CompletionStatus, SessionFeedback, OptimizationSuggestion } from '../types';
 import { getSessionSuggestion } from '../services/geminiService';
 import FeedbackModal from './FeedbackModal';
@@ -14,6 +14,29 @@ const getIntensityColor = (type: string) => {
     return 'bg-gray-700/50 text-gray-400 border-gray-600/50';
 };
 
+const getPhaseColor = (phase: string) => {
+    const p = phase.toLowerCase();
+    if (p.includes('maintien')) return 'bg-gray-600 text-gray-200';
+    if (p.includes('développement')) return 'bg-blue-600 text-white';
+    if (p.includes('spécifique')) return 'bg-purple-600 text-white';
+    if (p.includes('affûtage')) return 'bg-green-600 text-white';
+    if (p.includes('compétition')) return 'bg-red-600 text-white animate-pulse';
+    return 'bg-gray-700 text-gray-300';
+};
+
+const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+};
+
+const isDateInWeek = (dateStr: string, weekStartStr: string, weekEndStr: string) => {
+    const target = new Date(dateStr).getTime();
+    const start = new Date(weekStartStr).getTime();
+    const end = new Date(weekEndStr).getTime();
+    return target >= start && target <= end;
+};
+
+// ... FeedbackIcon, SessionSuggestionModal components stay same ...
 const FeedbackIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
 );
@@ -53,13 +76,13 @@ const SessionSuggestionModal: React.FC<{ session: DetailedSession, onClose: () =
                     <button onClick={onClose} className="text-3xl text-gray-400 hover:text-white">&times;</button>
                 </div>
                 <div className="mb-4 bg-black/20 p-3 rounded-lg border border-white/10">
-                    <p className="font-semibold text-base text-gray-300">{session.jour} - {session.type} ({session.volume} km)</p>
-                    <p className="text-sm text-gray-400">{session.contenu}</p>
+                    <p className="font-semibold text-base text-gray-300">{session.jour} {formatDate(session.date)}</p>
+                    <p className="text-sm text-gray-400">{session.type}</p>
                 </div>
                 <textarea 
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Ex: Il pleut, que puis-je faire à la place ?"
+                    placeholder="Ex: Il pleut, que faire à la place ?"
                     className="w-full h-24 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#FF38B1]"
                 />
                 <button 
@@ -67,12 +90,12 @@ const SessionSuggestionModal: React.FC<{ session: DetailedSession, onClose: () =
                     disabled={isLoading || !query}
                     className="w-full mt-4 px-8 py-3 text-lg font-semibold text-white rounded-full bg-[#FF38B1] transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-[#FF38B1]/50 disabled:bg-gray-600 disabled:cursor-not-allowed glow-shadow-pink-hover"
                 >
-                    {isLoading ? 'Génération en cours...' : '🤖 Obtenir une suggestion'}
+                    {isLoading ? 'Génération...' : '🤖 Suggestion'}
                 </button>
                 {error && <p className="text-red-400 text-sm mt-4 text-center">{error}</p>}
                 {suggestion && (
                     <div className="mt-6 pt-4 border-t border-white/10 space-y-2">
-                        <h4 className="font-semibold text-white">Suggestion de l'IA :</h4>
+                        <h4 className="font-semibold text-white">Suggestion IA :</h4>
                         <div className="prose prose-invert prose-sm text-gray-300" dangerouslySetInnerHTML={{ __html: suggestion.replace(/\n/g, '<br />') }} />
                     </div>
                 )}
@@ -81,68 +104,53 @@ const SessionSuggestionModal: React.FC<{ session: DetailedSession, onClose: () =
     );
 };
 
-
 const SessionCard: React.FC<{ session: DetailedSession, feedback: SessionFeedback | undefined, onToggle: () => void, onInfoClick: () => void }> = ({ session, feedback, onToggle, onInfoClick }) => {
     const isCompleted = feedback?.completed || false;
     const hasNotes = !!feedback?.notes || !!feedback?.rpe;
     const colorClasses = getIntensityColor(session.type);
-    const isClubSession = session.type.toLowerCase().includes('run club');
-    const isSurpriseSession = session.type.toLowerCase().includes('surprise');
+    const isSurprise = session.type.toLowerCase().includes('surprise');
 
     if (session.type.toLowerCase() === 'repos') {
         return (
-            <div className={`p-5 rounded-lg border flex flex-col h-full justify-center items-center ${colorClasses} print-bg-white print-text-black print-border`}>
-                <h4 className="font-bold text-xl">Repos</h4>
-                <p className="text-base text-center">Récupération et assimilation</p>
+            <div className={`p-4 rounded-lg border flex flex-col h-full justify-center items-center ${colorClasses} opacity-60`}>
+                <h4 className="font-bold text-lg">{session.jour} <span className="text-sm font-normal opacity-75">{formatDate(session.date)}</span></h4>
+                <span className="text-sm font-bold mt-1">REPOS</span>
             </div>
         );
     }
     return (
-        <div className={`p-5 rounded-lg border flex flex-col h-full transition-all duration-300 ${isCompleted ? 'bg-gray-800/50 border-gray-700' : colorClasses} print-bg-white print-text-black print-border`}>
+        <div className={`p-5 rounded-lg border flex flex-col h-full transition-all duration-300 ${isCompleted ? 'bg-gray-800/50 border-gray-700' : colorClasses}`}>
             <div className="flex justify-between items-start mb-2">
                 <div>
-                    <h4 className={`font-bold text-xl transition-colors ${isCompleted ? 'text-gray-500 line-through' : 'text-white'}`}>{session.jour}</h4>
-                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${isClubSession && !isCompleted ? 'bg-[#00AFED] text-white' : isCompleted ? 'bg-gray-600 text-gray-400' : ''}`}>
-                        {session.type}
-                    </span>
+                    <h4 className={`font-bold text-lg transition-colors ${isCompleted ? 'text-gray-500 line-through' : 'text-white'}`}>
+                        {session.jour} <span className="text-sm font-normal opacity-75 ml-1">{formatDate(session.date)}</span>
+                    </h4>
                 </div>
-                 <input type="checkbox" checked={isCompleted} onChange={onToggle} className="form-checkbox h-6 w-6 rounded-md bg-white/10 border-white/20 text-[#00AFED] focus:ring-0 focus:ring-offset-0 cursor-pointer"/>
+                 <input type="checkbox" checked={isCompleted} onChange={onToggle} className="form-checkbox h-5 w-5 rounded bg-white/10 border-white/20 text-[#00AFED] cursor-pointer"/>
             </div>
-            {isSurpriseSession && !isCompleted && (
-                <p className="text-xs text-[#00AFED] italic mb-2">🌀 Séance planifiée par le coach</p>
-            )}
-            <p onClick={onInfoClick} className={`text-base flex-grow line-clamp-3 cursor-pointer hover:text-white transition-colors ${isCompleted ? 'text-gray-500' : 'text-gray-300'}`}>{session.contenu}</p>
-            <div className="flex justify-between items-center mt-2">
+            {isSurprise && !isCompleted && <p className="text-xs text-[#00AFED] italic mb-1">🌀 Surprise Coachs</p>}
+            <p onClick={onInfoClick} className={`text-sm md:text-base flex-grow line-clamp-3 cursor-pointer hover:text-white transition-colors ${isCompleted ? 'text-gray-500' : 'text-gray-300'}`}>{session.contenu}</p>
+            <div className="flex justify-between items-center mt-3 pt-2 border-t border-white/10">
                 {isCompleted && hasNotes ? <FeedbackIcon /> : <div/>}
-                <p className={`text-right font-semibold text-base transition-colors ${isCompleted ? 'text-gray-500' : 'text-white'}`}>{session.volume} km</p>
+                <span className={`text-sm font-semibold ${isCompleted ? 'text-gray-500' : 'text-white'}`}>{session.type} • {session.volume} km</span>
             </div>
         </div>
     );
 };
 
+// ... PDFExportTemplate stays same but use session.date ...
 const PDFExportTemplate: React.FC<{ plan: DetailedTrainingPlan, userProfile: FormData }> = ({ plan, userProfile }) => (
     <div id="pdf-content" className="p-8 bg-white text-gray-800" style={{ width: '210mm', minHeight: '297mm' }}>
-        <div className="flex items-center justify-between mb-8 pb-4 border-b">
-            <div>
-                <h1 className="text-3xl font-bold text-[#183C89]">Plan d'Entraînement</h1>
-                <h2 className="text-xl text-[#00AFED]">Saint-Avertin Run Club</h2>
-            </div>
-             <img src="https://i.postimg.cc/vHTLCvyW/Untitled-4.png" alt="SARC Logo" className="h-16 w-16"/>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-8 text-sm">
-            <div className="bg-gray-100 p-3 rounded"><strong>Objectif:</strong> {userProfile.objective}</div>
-            <div className="bg-gray-100 p-3 rounded"><strong>Niveau:</strong> {userProfile.level}</div>
-            <div className="bg-gray-100 p-3 rounded"><strong>Durée:</strong> {userProfile.duration} semaines</div>
-        </div>
+        <h1 className="text-3xl font-bold text-[#183C89] mb-4">Plan SARC - {userProfile.objective}</h1>
+        <p className="mb-8">Objectif: {formatDate(plan.raceDate)}</p>
         <div className="space-y-6">
             {plan.plan.map((week) => (
                 <div key={week.semaine} className="break-inside-avoid">
-                    <h3 className="text-xl font-bold mb-2 text-[#183C89] border-b-2 border-[#00AFED] pb-1">Semaine {week.semaine}</h3>
-                    <div className="grid grid-cols-1 gap-2">
-                        {week.jours.filter(s => s.type.toLowerCase() !== 'repos').map((session, index) => (
-                            <div key={index} className="p-2 border rounded-md">
-                                <p className="font-bold">{session.jour} - {session.type} ({session.volume} km)</p>
-                                <p className="text-xs">{session.contenu}</p>
+                    <h3 className="text-xl font-bold mb-2 text-[#183C89] border-b border-[#00AFED]">Semaine {week.semaine} - {week.phase}</h3>
+                    <div className="grid grid-cols-1 gap-1">
+                        {week.jours.map((session, index) => (
+                            <div key={index} className="p-1 border-b text-sm">
+                                <span className="font-bold">{session.jour} {formatDate(session.date)}</span>: {session.type} ({session.volume} km)
                             </div>
                         ))}
                     </div>
@@ -169,24 +177,49 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const [selectedSession, setSelectedSession] = useState<{session: DetailedSession, feedback: SessionFeedback | undefined} | null>(null);
     const [feedbackTarget, setFeedbackTarget] = useState<{ weekIndex: number, sessionIndex: number, session: DetailedSession } | null>(null);
     const [suggestionTarget, setSuggestionTarget] = useState<DetailedSession | null>(null);
-
-    const [showCopied, setShowCopied] = useState(false);
-    const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set(savedPlan.plan.plan.map(w => w.semaine)));
+    const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set());
+    const weekRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
     const { plan, userProfile, completionStatus, id: planId } = savedPlan;
-    // FIX: Explicitly cast the item 's' to SessionFeedback.
-    // TypeScript was inferring 's' as 'unknown' type, causing a type error when accessing 's.completed'.
     const hasCompletedSessions = Object.values(completionStatus).some(s => (s as SessionFeedback).completed);
+
+    // Auto-scroll to current week on mount
+    useEffect(() => {
+        const today = new Date().toISOString().split('T')[0];
+        let currentWeekIndex = -1;
+
+        // Find current week based on date
+        plan.plan.forEach((week) => {
+             if (isDateInWeek(today, week.startDate, week.endDate)) {
+                 currentWeekIndex = week.semaine;
+             }
+        });
+
+        // If not found (plan hasn't started), default to week 1. If ended, last week.
+        if (currentWeekIndex === -1) {
+            const firstWeekStart = plan.plan[0].startDate;
+            if (new Date(today) < new Date(firstWeekStart)) currentWeekIndex = 1;
+            else currentWeekIndex = plan.plan[plan.plan.length - 1].semaine;
+        }
+
+        // Expand current and next week
+        setExpandedWeeks(new Set([currentWeekIndex, currentWeekIndex + 1]));
+
+        // Scroll
+        setTimeout(() => {
+            const el = weekRefs.current[currentWeekIndex];
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 500);
+    }, [plan.plan]);
 
 
     const toggleWeek = (weekNumber: number) => {
         setExpandedWeeks(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(weekNumber)) {
-                newSet.delete(weekNumber);
-            } else {
-                newSet.add(weekNumber);
-            }
+            if (newSet.has(weekNumber)) newSet.delete(weekNumber);
+            else newSet.add(weekNumber);
             return newSet;
         });
     };
@@ -194,12 +227,9 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const handleToggleSession = (weekIndex: number, sessionIndex: number, session: DetailedSession) => {
         const key = `${weekIndex}_${sessionIndex}`;
         const isCurrentlyCompleted = completionStatus[key]?.completed || false;
-
         if (!isCurrentlyCompleted) {
-            // If marking as complete, open feedback modal
             setFeedbackTarget({ weekIndex, sessionIndex, session });
         } else {
-            // If un-marking, just update the status
             const newStatus = { ...completionStatus, [key]: { completed: false } };
             onUpdateCompletion(planId, newStatus);
         }
@@ -207,137 +237,91 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
 
     const handleFeedbackSubmit = (feedback: { rpe?: number, notes?: string }) => {
         if (!feedbackTarget) return;
-
         const { weekIndex, sessionIndex } = feedbackTarget;
         const key = `${weekIndex}_${sessionIndex}`;
-        
-        const newFeedback: SessionFeedback = {
-            completed: true,
-            rpe: feedback.rpe,
-            notes: feedback.notes
-        };
-
-        const newStatus = { ...completionStatus, [key]: newFeedback };
-        onUpdateCompletion(planId, newStatus);
+        const newFeedback: SessionFeedback = { completed: true, rpe: feedback.rpe, notes: feedback.notes };
+        onUpdateCompletion(planId, { ...completionStatus, [key]: newFeedback });
         setFeedbackTarget(null);
     };
 
     const handlePrint = () => {
         const element = document.getElementById('pdf-content');
-        if (!element) {
-            console.error("L'élément de contenu PDF est introuvable.");
-            return;
-        }
-
-        const html2pdfLib = (window as any).html2pdf;
-        if (!html2pdfLib) {
-            alert("La fonctionnalité PDF n'est pas encore prête, veuillez patienter un instant.");
-            console.error("html2pdf.js library not found on window object.");
-            return;
-        }
-
-        const options = {
-            margin: [10, 10, 10, 10],
-            filename: `plan-sarc-${userProfile.objective.toLowerCase().replace(/[\s/]/g, '-')}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        html2pdfLib().from(element).set(options).save();
-    };
-
-    const handleShare = () => {
-        const url = `${window.location.origin}${window.location.pathname}?planId=${planId}`;
-        navigator.clipboard.writeText(url);
-        setShowCopied(true);
-        setTimeout(() => setShowCopied(false), 2000);
+        if (!element || !(window as any).html2pdf) return;
+        const opt = { margin: 10, filename: `plan-sarc.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+        (window as any).html2pdf().from(element).set(opt).save();
     };
 
     return (
-        <div className="animate-fade-in">
-            {/* This div positions the PDF content off-screen so html2pdf can render it */}
-            <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
+        <div className="animate-fade-in relative">
+             <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
                 <PDFExportTemplate plan={plan} userProfile={userProfile} />
             </div>
-            
-            <div className="text-center no-print">
-                <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">Votre Plan Actif</h1>
-                <p className="text-xl text-gray-300 mb-4">
-                    Objectif <span className="text-[#00AFED] font-semibold">{userProfile.objective}</span> en {userProfile.duration} semaines.
-                </p>
-                <div className="flex flex-wrap justify-center gap-4 mb-8">
-                    <button onClick={onOptimizeRequest} disabled={!hasCompletedSessions || isOptimizing} className="px-6 py-2 text-base bg-yellow-500/80 border border-yellow-400/30 text-white font-semibold rounded-full hover:bg-yellow-500/90 transition-all disabled:bg-gray-600 disabled:cursor-not-allowed disabled:border-gray-500 disabled:text-gray-400">
-                        {isOptimizing ? 'Analyse en cours...' : '🤖 Analyser & Optimiser'}
-                    </button>
-                    <button onClick={handlePrint} className="px-6 py-2 text-base bg-white/10 border border-white/20 text-white rounded-full hover:bg-white/20 transition-colors">🖨️ Imprimer / PDF</button>
-                    <button onClick={onNewPlanRequest} className="px-6 py-2 text-base bg-[#00AFED] text-white font-semibold rounded-full glow-shadow-hover transition-all">🚀 Créer un nouveau plan</button>
+
+            <div className="text-center mb-8 no-print">
+                <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">Calendrier Réel</h1>
+                <p className="text-xl text-gray-300">Objectif : <span className="text-[#00AFED] font-bold">{formatDate(plan.raceDate)}</span></p>
+                <div className="flex flex-wrap justify-center gap-4 mt-6">
+                    <button onClick={onOptimizeRequest} disabled={!hasCompletedSessions || isOptimizing} className="px-5 py-2 text-sm bg-yellow-600/80 text-white rounded-full hover:bg-yellow-500 disabled:opacity-50">⚡ Optimiser</button>
+                    <button onClick={handlePrint} className="px-5 py-2 text-sm bg-white/10 text-white rounded-full hover:bg-white/20">🖨️ PDF</button>
+                    <button onClick={onNewPlanRequest} className="px-5 py-2 text-sm bg-[#00AFED] text-white rounded-full hover:bg-[#0095c7]">Nouveau Plan</button>
                 </div>
             </div>
-            
-             {/* Optimization Suggestions Display */}
-            <div className="no-print mb-8">
-                {optimizationError && <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg text-center">{optimizationError}</div>}
-                {optimizationSuggestions && (
-                    <div className="bg-yellow-900/30 border border-yellow-500/40 rounded-2xl p-6 animate-fade-in">
-                        <h2 className="text-2xl font-bold text-yellow-300 mb-4 text-center">💡 Suggestions d'Optimisation</h2>
-                        <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-4">
-                            {optimizationSuggestions.map((s, i) => (
-                                <div key={i} className="bg-black/20 p-5 rounded-lg border border-white/10">
-                                    <h3 className="font-semibold text-lg text-white mb-1">{s.title}</h3>
-                                    <p className="text-yellow-200 mb-2">{s.suggestion}</p>
-                                    <p className="text-sm text-gray-400 italic"><strong>Raison :</strong> {s.reasoning}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
 
-            <div className="space-y-4 no-print">
+            {/* Suggestions Block */}
+            {optimizationSuggestions && (
+                 <div className="mb-8 bg-yellow-900/20 border border-yellow-500/30 rounded-2xl p-6 no-print">
+                    <h2 className="text-xl font-bold text-yellow-300 mb-4">💡 Suggestions</h2>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {optimizationSuggestions.map((s, i) => (
+                            <div key={i} className="bg-black/20 p-4 rounded-lg">
+                                <h3 className="font-bold text-white">{s.title}</h3>
+                                <p className="text-sm text-yellow-100">{s.suggestion}</p>
+                            </div>
+                        ))}
+                    </div>
+                 </div>
+            )}
+
+            <div className="space-y-6 pb-20 no-print">
                 {plan.plan.map((week, weekIndex) => {
                     const isExpanded = expandedWeeks.has(week.semaine);
-                    const totalSessions = week.jours.filter(s => s.type.toLowerCase() !== 'repos').length;
-                    const completedSessions = week.jours.reduce((acc, _, sessionIndex) => {
-                        return completionStatus[`${weekIndex}_${sessionIndex}`]?.completed ? acc + 1 : acc;
-                    }, 0);
-                    const progress = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
-
+                    const today = new Date().toISOString().split('T')[0];
+                    const isCurrent = isDateInWeek(today, week.startDate, week.endDate);
+                    
                     return (
-                        <div key={week.semaine} className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8 print-bg-white print-border transition-all duration-300">
+                        <div 
+                            key={week.semaine} 
+                            ref={el => weekRefs.current[week.semaine] = el}
+                            className={`rounded-2xl border transition-all duration-300 ${isCurrent ? 'bg-[#183C89]/30 border-[#00AFED] shadow-lg shadow-[#00AFED]/20 transform scale-[1.01]' : 'bg-black/20 border-white/10 opacity-90'}`}
+                        >
                              <div 
-                                className="flex justify-between items-center cursor-pointer"
+                                className="p-4 md:p-6 cursor-pointer flex justify-between items-center"
                                 onClick={() => toggleWeek(week.semaine)}
-                                role="button" aria-expanded={isExpanded}
                             >
-                                <div className="flex items-center gap-4">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-white print-text-black">Semaine {week.semaine}</h2>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                <div>
+                                    <div className="flex items-center gap-3">
+                                        <h2 className={`text-2xl font-bold ${isCurrent ? 'text-[#00AFED]' : 'text-white'}`}>Semaine {week.semaine}</h2>
+                                        <span className={`px-3 py-1 text-xs font-bold uppercase rounded-full tracking-wider ${getPhaseColor(week.phase)}`}>{week.phase}</span>
+                                    </div>
+                                    <p className="text-sm text-gray-400 mt-1">Du {formatDate(week.startDate)} au {formatDate(week.endDate)}</p>
                                 </div>
                                 <div className="text-right">
-                                   <p className="text-lg md:text-xl font-semibold text-[#00AFED]">{week.volumeTotal} km</p>
-                                    {week.repartition && (<p className="text-xs text-gray-400">{week.repartition.ef}% EF / {week.repartition.intensite}% Intensité</p>)}
+                                    <p className="text-xl font-bold text-white">{week.volumeTotal} km</p>
+                                    <p className="text-xs text-gray-500">Volume Hebdo</p>
                                 </div>
                             </div>
-                            
-                            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[1000px] mt-6' : 'max-h-0'}`}>
-                                <div className="w-full bg-gray-700/50 rounded-full h-2 mb-4">
-                                    <div className="bg-[#00AFED] h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                    {week.jours.map((session, sessionIndex) => {
-                                        const key = `${weekIndex}_${sessionIndex}`;
-                                        const feedback = completionStatus[key];
-                                        return (
-                                            <SessionCard 
-                                                key={sessionIndex} 
-                                                session={session} 
-                                                feedback={feedback}
-                                                onToggle={() => handleToggleSession(weekIndex, sessionIndex, session)}
-                                                onInfoClick={() => setSelectedSession({session, feedback})}
-                                            />
-                                        )
-                                    })}
+
+                            <div className={`overflow-hidden transition-all duration-500 ${isExpanded ? 'max-h-[2000px] border-t border-white/5' : 'max-h-0'}`}>
+                                <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {week.jours.map((session, sessionIndex) => (
+                                        <SessionCard 
+                                            key={sessionIndex} 
+                                            session={session} 
+                                            feedback={completionStatus[`${weekIndex}_${sessionIndex}`]}
+                                            onToggle={() => handleToggleSession(weekIndex, sessionIndex, session)}
+                                            onInfoClick={() => setSelectedSession({session, feedback: completionStatus[`${weekIndex}_${sessionIndex}`]})}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -345,81 +329,31 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                 })}
             </div>
 
-            {feedbackTarget && (
-                <FeedbackModal 
-                    session={feedbackTarget.session}
-                    onClose={() => setFeedbackTarget(null)}
-                    onSubmit={handleFeedbackSubmit}
-                />
-            )}
-            
-            {suggestionTarget && (
-                <SessionSuggestionModal
-                    session={suggestionTarget}
-                    onClose={() => setSuggestionTarget(null)}
-                />
-            )}
-
+            {feedbackTarget && <FeedbackModal session={feedbackTarget.session} onClose={() => setFeedbackTarget(null)} onSubmit={handleFeedbackSubmit} />}
+            {suggestionTarget && <SessionSuggestionModal session={suggestionTarget} onClose={() => setSuggestionTarget(null)} />}
             {selectedSession && (
                 <div 
-                    className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in"
+                    className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                     onClick={() => setSelectedSession(null)}
                 >
-                    <div 
-                        className="bg-gradient-to-br from-[#183C89] to-[#0a1024] border border-white/20 rounded-2xl p-8 max-w-lg w-11/12 shadow-2xl"
-                        onClick={e => e.stopPropagation()}
-                    >
+                     <div className="bg-[#0B1226] border border-white/20 rounded-2xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="text-2xl font-bold text-white">{selectedSession.session.jour} - <span className="text-[#00AFED]">{selectedSession.session.type}</span></h3>
-                                <p className="text-lg text-gray-300 font-semibold">{selectedSession.session.volume} km</p>
+                                <h3 className="text-xl font-bold text-white">{selectedSession.session.jour} {formatDate(selectedSession.session.date)}</h3>
+                                <span className="text-[#00AFED] font-semibold">{selectedSession.session.type}</span>
                             </div>
-                            <button onClick={() => setSelectedSession(null)} className="text-3xl text-gray-400 hover:text-white">&times;</button>
+                            <button onClick={() => setSelectedSession(null)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
                         </div>
                         <div className="space-y-4 text-gray-300">
-                            <div>
-                                <h4 className="font-semibold text-white">Contenu de la séance :</h4>
+                             <div className="bg-white/5 p-4 rounded-lg">
+                                <p className="font-medium text-white mb-2">Contenu</p>
                                 <p>{selectedSession.session.contenu}</p>
                             </div>
-                            <div>
-                                <h4 className="font-semibold text-white">Objectif :</h4>
-                                <p>{selectedSession.session.objectif}</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white/5 p-3 rounded-lg"><p className="text-xs text-gray-400 uppercase">Volume</p><p className="text-white font-bold">{selectedSession.session.volume} km</p></div>
+                                <div className="bg-white/5 p-3 rounded-lg"><p className="text-xs text-gray-400 uppercase">Objectif</p><p className="text-white text-sm">{selectedSession.session.objectif}</p></div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
-                                {selectedSession.session.allure && <div><p className="font-semibold text-white">Allure</p><p>{selectedSession.session.allure}</p></div>}
-                                {selectedSession.session.frequenceCardiaque && <div><p className="font-semibold text-white">Fréquence Cardiaque</p><p>{selectedSession.session.frequenceCardiaque}</p></div>}
-                                {selectedSession.session.rpe && <div><p className="font-semibold text-white">RPE</p><p>{selectedSession.session.rpe}</p></div>}
-                            </div>
-
-                             {selectedSession.feedback && (selectedSession.feedback.rpe || selectedSession.feedback.notes) && (
-                                <div className="pt-4 border-t border-white/10 space-y-3">
-                                    <h4 className="font-semibold text-white">Votre Retour :</h4>
-                                    {selectedSession.feedback.rpe && (
-                                         <div>
-                                            <p className="font-semibold text-sm text-gray-400">Ressenti (RPE)</p>
-                                            <p>{selectedSession.feedback.rpe}/10</p>
-                                        </div>
-                                    )}
-                                    {selectedSession.feedback.notes && (
-                                        <div>
-                                            <p className="font-semibold text-sm text-gray-400">Notes</p>
-                                            <p className="whitespace-pre-wrap">{selectedSession.feedback.notes}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                             <div className="mt-6 pt-4 border-t border-white/10">
-                                <button 
-                                    onClick={() => {
-                                        setSelectedSession(null);
-                                        setSuggestionTarget(selectedSession.session);
-                                    }}
-                                    className="w-full text-center px-4 py-2 text-sm font-semibold text-white rounded-full bg-[#FF38B1]/80 hover:bg-[#FF38B1] transition-all"
-                                >
-                                    🤖 Demander un ajustement à l'IA
-                                </button>
-                            </div>
+                            <button onClick={() => { setSelectedSession(null); setSuggestionTarget(selectedSession.session); }} className="w-full py-3 bg-[#FF38B1] text-white font-bold rounded-full hover:bg-[#FF38B1]/80 transition-colors">Adaptation IA</button>
                         </div>
                     </div>
                 </div>
