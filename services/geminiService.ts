@@ -1,11 +1,36 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion, DetailedSession, ChatMessage } from '../types';
 
-// As per guidelines, the API key is injected by the environment and available as process.env.API_KEY.
+// Helper to safely get the API key from various environment sources
+export const getApiKey = (): string | undefined => {
+    // 1. Check process.env (Standard Node/Bundler/AI Studio)
+    try {
+        if (typeof process !== 'undefined' && process.env?.API_KEY) {
+            return process.env.API_KEY;
+        }
+    } catch (e) { /* ignore reference errors */ }
+
+    // 2. Check import.meta.env (Vite/ESM - Standard for Vercel/Netlify deployments)
+    try {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+            // @ts-ignore
+            return import.meta.env.VITE_API_KEY;
+        }
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) {
+             // @ts-ignore
+            return import.meta.env.API_KEY;
+        }
+    } catch (e) { /* ignore */ }
+    
+    return undefined;
+};
+
 const getAiClient = () => {
-    const apiKey = process.env.API_KEY;
+    const apiKey = getApiKey();
     if (!apiKey) {
-      throw new Error("La clé API n'est pas configurée. Assurez-vous que la variable d'environnement API_KEY est correctement définie.");
+      throw new Error("La clé API n'est pas configurée. Si vous êtes sur un site déployé (Vercel, Netlify...), assurez-vous de définir la variable d'environnement 'VITE_API_KEY' (ou 'API_KEY').");
     }
     return new GoogleGenAI({ apiKey });
 };
@@ -181,7 +206,7 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
     } catch (error) {
         console.error(`Erreur lors de la génération (Tentative ${attempt}/${MAX_RETRIES}):`, error);
         if (attempt === MAX_RETRIES) {
-             if (error instanceof Error && error.message.includes("API_KEY")) {
+             if (error instanceof Error && (error.message.includes("API_KEY") || error.message.includes("clé API"))) {
                 throw error; // Re-throw the specific API key error to be displayed
              }
             throw new Error("La génération du plan a échoué, même après plusieurs tentatives. L'IA a peut-être du mal à créer un plan cohérent pour ce profil. Essayez de vérifier la cohérence de vos informations (niveau, chronos, allure EF) et simplifiez la demande si possible.");
@@ -259,7 +284,7 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
       }
   } catch(error) {
     console.error("Erreur lors de l'optimisation du plan:", error);
-    if (error instanceof Error && error.message.includes("API_KEY")) {
+    if (error instanceof Error && (error.message.includes("API_KEY") || error.message.includes("clé API"))) {
         throw error;
     }
     throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
