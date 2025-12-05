@@ -1,3 +1,4 @@
+
 // Fix: Define all necessary types for the application.
 
 export interface User {
@@ -43,6 +44,12 @@ export enum Terrain {
     MIXED = "Mixte",
 }
 
+export enum LifeStress {
+    LOW = "Faible (Reposé, temps dispo)",
+    MEDIUM = "Moyen (Vie active standard)",
+    HIGH = "Élevé (Travail intense, peu de sommeil)",
+}
+
 export interface FormData {
     gender: Gender;
     age: number;
@@ -60,6 +67,7 @@ export interface FormData {
     availabilityDays: string[];
     duration: number;
     terrain: Terrain;
+    lifeStress: LifeStress; // New field
     notes: string;
 }
 
@@ -93,6 +101,7 @@ export interface DetailedTrainingPlan {
         as42: string;
         vma: string;
     };
+    coachNotes?: string; // Global analysis of the strategy used
 }
 
 export interface SessionFeedback {

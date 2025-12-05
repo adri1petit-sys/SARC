@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion, DetailedSession, ChatMessage } from '../types';
 
@@ -35,6 +36,36 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
+// ---------------------------------------------------------------------------
+//  KNOWLEDGE BASE: SYSTEMIC OPTIMIZATION STUDY
+// ---------------------------------------------------------------------------
+const TRAINING_PHILOSOPHY_CONTEXT = `
+CONTEXTE SCIENTIFIQUE ET MÉTHODOLOGIQUE (RÉFÉRENCE ABSOLUE) :
+Vous êtes l'IA Coach Principal du Saint-Avertin Run Club. Vous appliquez les principes de l'étude "Optimisation Systémique de l'Entraînement".
+
+1. **MODÉLISATION DE LA CHARGE** :
+   - Vous utilisez conceptuellement le modèle de Banister (Fitness - Fatigue = Perf).
+   - Sécurité : Vous surveillez le Ratio Acute:Chronic Workload (ACWR). Si la "Charge de Vie" (LifeStress) de l'utilisateur est élevée, le volume initial et la progression (ACWR) doivent être conservateurs (0.8 - 1.0). Si elle est faible, on peut être plus agressif (1.1 - 1.3).
+
+2. **DISTRIBUTION D'INTENSITÉ (POLARISÉ VS PYRAMIDAL)** :
+   - **Débutant / Intermédiaire / Marathonien** : Utilisez le modèle **PYRAMIDAL**. Base large EF (Zone 1), beaucoup de Seuil/Tempo (Zone 2, 15-25%), peu de VMA pure (Zone 3). C'est plus sûr et consolide l'endurance spécifique.
+   - **Expert / Court (10k) / Ultra-Traileur aguerri** : Utilisez le modèle **POLARISÉ** (80/20). 80% très facile, 20% très dur (VMA/Seuil dur). On évite la "zone grise" intermédiaire.
+
+3. **SPÉCIFICITÉS PAR DISTANCE (RÈGLES D'OR)** :
+   - **10 km** : Focus sur le Seuil Anaérobie et la puissance aérobie. Récupérations "flottantes" (actives) sur les fractionnés pour recycler le lactate. Volume 40-60km+.
+   - **Semi-Marathon** : Endurance de vitesse. Blocs spécifiques (ex: 3x3km allure semi). Sortie longue jusqu'à 18-22km (légère surdistance possible).
+   - **Marathon** : Gestion du glycogène. **Règle absolue : Sortie Longue plafonnée à 2h30 ou 30km** pour éviter la casse musculaire excessive. Accumuler la fatigue *avant* la sortie longue. Tapering strict (2-3 semaines).
+   - **Ultra-Trail** : Durée & Dénivelé. Le volume se compte en heures. Intégrer des "Week-ends Choc" (Back-to-Back : Longue Samedi + Longue Dimanche sur fatigue). Travail excentrique (descentes) et Rando-Course (marche active).
+
+4. **SESSIONS SARC (OBLIGATOIRES)** :
+   - **Mercredi** : "Séance Surprise Run Club". Intensité élevée. Durée ~50min. Compte comme du fractionné/VMA.
+   - **Dimanche** : "Run Club Sortie Longue". Allure cool (~6:00/km ou ajusté niveau). C'est la base de l'endurance.
+   - *Adaptation* : Si le plan scientifique demande plus de volume ces jours-là, ajoutez de l'EF *avant* ou *après* la séance club.
+
+5. **PHILOSOPHIE** :
+   - Prédire la blessure avant qu'elle n'arrive (gestion de charge).
+   - "Liquidité" du plan : Si une séance est manquée, on ne la rattrape pas bêtement le lendemain si cela crée un pic de charge.
+`;
 
 const MAX_RETRIES = 2;
 
@@ -63,60 +94,49 @@ const formatFeedbackForAI = (plan: SavedPlan): string => {
 export async function generateDetailedTrainingPlan(formData: FormData, useThinkingMode: boolean): Promise<DetailedTrainingPlan> {
   const ai = getAiClient();
   const prompt = `
-    You are an expert French running coach ("entraîneur diplômé FFA") for the Saint-Avertin Run Club. Your mission is to create a professional, progressive, and scientifically sound training plan.
+    ${TRAINING_PHILOSOPHY_CONTEXT}
 
-    **CRITICAL INSTRUCTION:** Your absolute top priority is to return a valid JSON object that strictly follows the provided schema. Do not include any text, notes, or markdown formatting (like \`\`\`json) before or after the JSON object. The response must be ONLY the JSON.
+    **MISSION** :
+    Create a highly personalized, scientifically optimized training plan for the following runner.
+    Return ONLY a valid JSON object matching the schema. No markdown, no intro text.
 
-    **User Profile:**
-    - Gender: ${formData.gender}, Age: ${formData.age}, Weight: ${formData.weight} kg, Height: ${formData.height} cm
-    - Running History: ${formData.runningHistory}
-    - Current Level: ${formData.level}
-    - Personal Bests: 5k: ${formData.pb5k || 'N/A'}, 10k: ${formData.pb10k || 'N/A'}, Half-Marathon: ${formData.pbSemi || 'N/A'}, Marathon: ${formData.pbMarathon || 'N/A'}
-    - Current Easy Pace (EF): ${formData.currentPaceEF}
-    - Objective: ${formData.objective}
-    - Target Time: ${formData.targetTime}
-    - Available days: ${formData.availabilityDays.join(', ')}
-    - Plan Duration: ${formData.duration} weeks
-    - Primary Terrain: ${formData.terrain}
-    - User Notes/Injuries: ${formData.notes || 'None'}
+    **USER PROFILE (PHYSIOLOGICAL INPUTS)** :
+    - Gender: ${formData.gender}, Age: ${formData.age}
+    - Level: ${formData.level} (Determine intensity distribution based on this: Pyramidal vs Polarized)
+    - Experience: ${formData.runningHistory}
+    - Life Stress Load: ${formData.lifeStress} (CRITICAL: Adjust ACWR and recovery weeks based on this. High stress = Lower volume progression).
+    - Current EF Pace: ${formData.currentPaceEF}
+    - PBs: 5k=${formData.pb5k || 'N/A'}, 10k=${formData.pb10k || 'N/A'}, Half=${formData.pbSemi || 'N/A'}, Marathon=${formData.pbMarathon || 'N/A'}.
+    - Objective: ${formData.objective} aiming for ${formData.targetTime}.
+    - Duration: ${formData.duration} weeks.
+    - Availability: ${formData.availabilityDays.join(', ')}.
+    - Terrain: ${formData.terrain}.
+    - Notes/Injuries: ${formData.notes || 'None'} (If injuries mentioned, switch to safe mode: slower progression, more cross-training suggestions).
 
-    **MANDATORY COACHING RULES:**
+    **CONSTRUCTION RULES** :
+    1. **Periodization**:
+       - Calculate Starting Volume based on history + life stress.
+       - Progressive Overload: +5-10% volume per week max.
+       - Cycles: 3 weeks ON, 1 week RECOVERY (Volume -30%).
+       - Tapering: 2 weeks before race (progressive decay of volume, keep intensity).
 
-    1.  **Fixed Club Sessions (Non-Negotiable):**
-        *   **Wednesday:** Integrate a **fixed surprise interval session**. The content for this session must be decided by the club coaches on the day, so do NOT detail the intervals.
-            *   Set the \`type\` to "Fractionné Run Club – séance surprise".
-            *   Set the \`contenu\` to a standard text like "Séance de fractionné surprise avec le Saint-Avertin Run Club (~50 min). Elle sera détaillée par les coachs le jour J."
-            *   This core session lasts 50 minutes and represents about 10km of volume. It is ALWAYS counted as a high-intensity workout for the 80/20 calculation.
-            *   **Adaptation:** If the plan's total weekly volume requires more distance on Wednesday, you MUST add extra Endurance Fondamentale (EF) *before and/or after* the core 50-minute session. Update the \`contenu\` and total \`volume\` for the day accordingly. For example, for a 70km week, the \`contenu\` might become "+ 3km EF avant + Séance surprise (~50 min) + 2km EF après" and the \`volume\` would be ~15km.
-        *   **Sunday:** Integrate an "EF Run Club" session. This is a 10 km endurance run at a comfortable 6:00/km pace. The type must contain "Run Club".
-        *   **Adaptation:** If the user's plan requires more volume on these days, add extra Endurance Fondamentale (EF) running *before* or *after* the core club session. For example, if the Sunday long run needs to be 15km, the session content should be \`2.5km EF + (10km EF Run Club @ 6:00/km) + 2.5km EF\`.
+    2. **Session Structure (Weekly)** :
+       - **Wednesday**: FORCE "Séance Surprise Run Club (Intensité)". If expert need more volume, add EF warmup/cooldown.
+       - **Sunday**: FORCE "Sortie Longue Run Club". If Marathon/Ultra plan, extend this run significantly (add volume before/after club run).
+       - **Other Days**: Fill with EF (Endurance Fondamentale) to reach weekly volume target. Add specific quality sessions (Threshold/VMA) only if recovery allows (Life Stress).
+       - **Constraint**: No more than 2 hard sessions per week (Wednesday is one). Never 2 hard days in a row.
 
-    2.  **The 80/20 Principle:**
-        *   Strictly structure each week's total volume to be approximately 80% low-intensity (Endurance Fondamentale - EF) and 20% high-intensity (Fractionné, Seuil, VMA).
-        *   Calculate and return these percentages in the \`repartition\` object for each week.
+    3. **Distance Logic (Apply strictly)** :
+       - If Objective = 10k: Focus on Threshold intervals (e.g., 3x2000m) and float recovery.
+       - If Objective = Marathon: Long run caps at 2h30. Focus on "Fatigue cumulée".
+       - If Objective = Ultra: Weekend Shock blocks if possible (Samedi + Dimanche). Focus on D+ if terrain allows.
 
-    3.  **Progressive Volume & Periodization:**
-        *   Calculate a logical starting weekly volume (in km) based on the user's level (e.g., Beginner: 25-40km, Intermediate: 40-60km, Confirmed: 60-80km, Expert: 80-100km).
-        *   Increase the weekly volume by about 5-10% each week.
-        *   Implement a **regeneration week every 4th week**, reducing total volume by 25-30% and lowering intensity.
-        *   The final 1-2 weeks before the objective must be a taper with significantly reduced volume.
-
-    4.  **Workout Structure & Safety:**
-        *   Schedule a maximum of two high-intensity sessions per week.
-        *   **Never schedule two high-intensity sessions on consecutive days.**
-        *   Use the user's available days to distribute the remaining sessions (mostly EF runs) to complete the weekly volume.
-        *   All non-rest days must have a session. Fill unused available days with "Repos" or very light active recovery.
-
-    5.  **Pace Calculation & Personalization (Crucial):**
-        *   Use the provided PBs and current easy pace (EF) to calculate realistic \`alluresReference\`. The reference paces (EF, threshold, race paces) MUST be consistent with the user's provided times. For example, a runner with a 50-minute 10k PB cannot have an EF pace of 5:00/km.
-        *   Adapt the plan's volume and intensity progression based on the user's \`runningHistory\`. A runner with less than a year of experience requires a much slower and more careful progression.
-        *   If any injury information is provided in the notes, prioritize safety. Suggest alternative activities or lower-impact sessions if appropriate, and keep the volume progression conservative.
-        *   If the user's data seems contradictory (e.g., beginner level with expert PBs), prioritize safety and their stated level. Build a conservative plan and calculate reference paces that are a logical progression from their current easy pace (EF). Make a sensible coaching decision.
-        
-    **JSON Output Instructions (Strictly follow this schema):**
-    - The root object must contain 'plan' and 'alluresReference'.
-    - Each 'week' object must have 'semaine', 'jours', 'volumeTotal', 'resume', and 'repartition'.
-    - The 'repartition' object must have 'ef' and 'intensite' as numbers.
+    **OUTPUT JSON SCHEMA**:
+    {
+      "plan": [ ... array of weeks ... ],
+      "alluresReference": { ... calculated paces ... },
+      "coachNotes": "String explaining the strategy (e.g., 'Given your high life stress, we chose a conservative Pyramidal approach...')"
+    }
   `;
 
   const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
@@ -174,7 +194,8 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
                   vma: { type: Type.STRING },
                 },
                 required: ["ef", "seuil", "as10", "as21", "as42", "vma"]
-              }
+              },
+              coachNotes: { type: Type.STRING }
           },
           required: ["plan", "alluresReference"],
       },
@@ -194,61 +215,45 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
 
       const jsonText = response.text.trim();
       if (!jsonText) {
-        throw new Error("L'IA a renvoyé une réponse vide. Veuillez simplifier votre demande ou réessayer.");
+        throw new Error("L'IA a renvoyé une réponse vide.");
       }
       const parsedPlan = JSON.parse(jsonText);
       
-      if (parsedPlan && Array.isArray(parsedPlan.plan) && parsedPlan.plan.length > 0 && parsedPlan.alluresReference) {
+      if (parsedPlan && Array.isArray(parsedPlan.plan)) {
         return parsedPlan as DetailedTrainingPlan;
       } else {
-        throw new Error("La structure du plan reçu de l'IA est invalide. Réessayer peut résoudre le problème.");
+        throw new Error("Structure JSON invalide.");
       }
     } catch (error) {
-        console.error(`Erreur lors de la génération (Tentative ${attempt}/${MAX_RETRIES}):`, error);
-        if (attempt === MAX_RETRIES) {
-             if (error instanceof Error && (error.message.includes("API_KEY") || error.message.includes("clé API"))) {
-                throw error; // Re-throw the specific API key error to be displayed
-             }
-            throw new Error("La génération du plan a échoué, même après plusieurs tentatives. L'IA a peut-être du mal à créer un plan cohérent pour ce profil. Essayez de vérifier la cohérence de vos informations (niveau, chronos, allure EF) et simplifiez la demande si possible.");
-        }
+        console.error(`Tentative ${attempt} échouée:`, error);
+        if (attempt === MAX_RETRIES) throw error;
     }
   }
-
-  // Fallback error, should not be reached if MAX_RETRIES > 0
-  throw new Error("La génération du plan a échoué.");
+  throw new Error("Échec de la génération.");
 }
 
 export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<OptimizationSuggestion[]> {
   const ai = getAiClient();
   const formattedFeedback = formatFeedbackForAI(plan);
   const prompt = `
-    You are an elite-level French running coach reviewing a runner's progress mid-plan. Your task is to analyze their profile, their assigned plan, and their feedback on completed sessions to provide concrete, actionable suggestions for optimizing the *remainder* of their plan.
+    ${TRAINING_PHILOSOPHY_CONTEXT}
 
-    **CRITICAL INSTRUCTION:** Your response MUST be a valid JSON array of objects, strictly following the provided schema. Do not add any extra text or markdown.
-
-    **1. User Profile:**
-    - Level: ${plan.userProfile.level}
-    - Objective: ${plan.userProfile.objective} at ${plan.userProfile.targetTime}
-    - History: ${plan.userProfile.runningHistory}
-    - PBs: 5k: ${plan.userProfile.pb5k || 'N/A'}, 10k: ${plan.userProfile.pb10k || 'N/A'}, Half: ${plan.userProfile.pbSemi || 'N/A'}, Marathon: ${plan.userProfile.pbMarathon || 'N/A'}
-
-    **2. Assigned Training Plan Summary:**
-    - Total Duration: ${plan.plan.plan.length} weeks
-    - Objective: ${plan.userProfile.objective}
-
-    **3. Runner's Log & Feedback (Completed Sessions):**
+    **TASK**: Act as the Expert SARC Coach. Analyze the runner's log to optimize the REST of the plan.
+    
+    **CONTEXT**:
+    - User Profile: ${plan.userProfile.level}, Obj: ${plan.userProfile.objective}.
+    - Life Stress: ${plan.userProfile.lifeStress} (Important for fatigue analysis).
+    - Feedback Log:
     ${formattedFeedback}
 
-    **4. Your Task:**
-    Based on all this data, provide 2-3 specific suggestions. Focus on:
-    - **Pace Adjustments:** Are their EF or interval paces too easy/hard based on RPE?
-    - **Volume Changes:** Should they slightly increase or decrease weekly volume?
-    - **Recovery:** Are they showing signs of fatigue (e.g. high RPE on easy days)? Suggest adding a rest day or converting an EF run to cross-training.
-    - **Mental Strategy:** Offer encouragement based on their notes.
-    - **Consistency:** If they are missing sessions, emphasize the importance of consistency.
+    **ANALYSIS LOGIC (LIQUID PLANNING)**:
+    1. **ACWR Check**: If the user missed big sessions, do NOT suggest squeezing them into next week (Risk of spike). Suggest a "Smooth Re-entry" (Liquidity).
+    2. **Fatigue Detection**: Look for keywords like "lourd", "dur", "sommeil", "stress" in notes. If present, suggest a "Deload" or "Recovery Week" immediately, even if not scheduled.
+    3. **Pace Adjustment**: If RPE is low on hard sessions, suggest recalibrating VMA/Threshold up.
 
-    For each suggestion, provide a clear title, the suggestion itself, and the reasoning behind it based on the data provided. Be encouraging but realistic, like a real coach. Your response must be an array of objects.
+    **OUTPUT**: JSON Array of suggestions.
   `;
+  
   try {
      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -269,37 +274,18 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
           },
         },
       });
-
-      const jsonText = response.text.trim();
-      if (!jsonText) {
-        throw new Error("L'IA n'a pas pu générer de suggestions pour le moment.");
-      }
-      
-      const suggestions = JSON.parse(jsonText);
-
-      if (Array.isArray(suggestions)) {
-          return suggestions as OptimizationSuggestion[];
-      } else {
-          throw new Error("La réponse de l'IA n'était pas dans le format attendu.");
-      }
+      return JSON.parse(response.text.trim()) as OptimizationSuggestion[];
   } catch(error) {
-    console.error("Erreur lors de l'optimisation du plan:", error);
-    if (error instanceof Error && (error.message.includes("API_KEY") || error.message.includes("clé API"))) {
-        throw error;
-    }
-    throw new Error("Désolé, une erreur est survenue lors de l'analyse de votre plan. Veuillez réessayer.");
+    console.error("Optimization error", error);
+    throw new Error("Impossible d'optimiser le plan pour le moment.");
   }
 }
 
 export async function generateChatResponse(history: ChatMessage[], newMessage: string, useGoogleSearch: boolean): Promise<GenerateContentResponse> {
     const ai = getAiClient();
-
     const config: any = {};
-    if (useGoogleSearch) {
-        config.tools = [{googleSearch: {}}];
-    }
+    if (useGoogleSearch) config.tools = [{googleSearch: {}}];
     
-    // The Gemini API expects the history in the `contents` field.
     const contents = [...history, { role: 'user', parts: [{ text: newMessage }] }];
 
     const response = await ai.models.generateContent({
@@ -307,7 +293,14 @@ export async function generateChatResponse(history: ChatMessage[], newMessage: s
         contents: contents,
         config: {
             ...config,
-            systemInstruction: "You are the SARC AI Coach, a friendly and knowledgeable running expert for the Saint-Avertin Run Club. Answer questions about running, training plans, nutrition, and club activities. Be encouraging and helpful. Your responses should be in French.",
+            systemInstruction: `
+                ${TRAINING_PHILOSOPHY_CONTEXT}
+                You are the SARC AI Coach. You help runners understand their plan using the scientific principles above.
+                - Explain "Why" (Why slow running makes you fast? Mitochondria/Lipolysis).
+                - Explain "Pyramidal vs Polarized".
+                - Be encouraging but scientific.
+                - Always answer in French.
+            `,
         }
     });
 
@@ -317,24 +310,11 @@ export async function generateChatResponse(history: ChatMessage[], newMessage: s
 export async function getSessionSuggestion(session: DetailedSession, userQuery: string): Promise<string> {
   const ai = getAiClient();
   const prompt = `
-    You are a helpful and creative French running coach. A runner needs an adjustment for a specific training session.
-    
-    **Original Session:**
-    - Day: ${session.jour}
-    - Type: ${session.type}
-    - Content: ${session.contenu}
-    - Objective: ${session.objectif}
-    - Volume: ${session.volume} km
-
-    **Runner's Request:** "${userQuery}"
-
-    **Your Task:**
-    Provide a concise, practical, and safe alternative session. Explain briefly why it's a good alternative. Be encouraging. Your response should be a direct answer to the runner, formatted in Markdown.
-    
-    Example response:
-    "Bien sûr ! S'il pleut et que vous ne pouvez pas faire votre fractionné sur piste, voici une bonne alternative pour travailler votre VMA à l'abri :
-    **Tapis de course :** Faites 15 min d'échauffement, puis 8x (400m à votre allure VMA / 200m de récupération en footing lent). Terminez par 10 min de retour au calme.
-    Cela vous permettra de réaliser la séance d'intensité prévue en toute sécurité."
+    ${TRAINING_PHILOSOPHY_CONTEXT}
+    **Context**: User wants to change this session: ${session.type} (${session.volume}km).
+    **Query**: "${userQuery}"
+    **Rule**: Proposed alternative must keep the same physiological stimulus (e.g. if VMA session -> propose Interval on Bike or Treadmill, not just easy jog).
+    Answer in French, Markdown.
   `;
   
   const response = await ai.models.generateContent({

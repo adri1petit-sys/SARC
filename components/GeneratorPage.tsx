@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Objective, Level, Gender, Terrain, RunningHistory } from '../types';
+import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress } from '../types';
 import type { FormData, DetailedTrainingPlan } from '../types';
 import { generateDetailedTrainingPlan } from '../services/geminiService';
 
@@ -57,6 +58,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         duration: 8,
         // Step 7
         terrain: Terrain.ROAD,
+        lifeStress: LifeStress.MEDIUM, // Default
         notes: ""
     });
     const [useThinkingMode, setUseThinkingMode] = useState(false);
@@ -69,7 +71,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         setIsGenerating(true);
         setError(null);
         setProgress(0);
-        setLoadingMessage("Analyse de votre profil...");
+        setLoadingMessage("Analyse du profil physiologique...");
         try {
             const generatedPlan = await generateDetailedTrainingPlan(formData, useThinkingMode);
             setProgress(100);
@@ -90,10 +92,11 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                         clearInterval(interval);
                         return 99;
                     }
-                    if (newProgress < 25) setLoadingMessage("Analyse de votre profil...");
-                    else if (newProgress < 50) setLoadingMessage("Calcul de vos allures...");
-                    else if (newProgress < 75) setLoadingMessage(useThinkingMode ? "Réflexion approfondie..." : "Construction du plan...");
-                    else setLoadingMessage("Finalisation...");
+                    if (newProgress < 20) setLoadingMessage("Analyse physiologique & historique...");
+                    else if (newProgress < 40) setLoadingMessage("Modélisation de la charge (ACWR)...");
+                    else if (newProgress < 60) setLoadingMessage("Structure des cycles (Polarisé vs Pyramidal)...");
+                    else if (newProgress < 80) setLoadingMessage("Calibrage des séances clés & Allures...");
+                    else setLoadingMessage("Finalisation et optimisation...");
                     return newProgress;
                 });
             }, duration);
@@ -130,12 +133,12 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         );
     }
 
-    const totalSteps = 7;
+    const totalSteps = 8; // Added one step
     const renderStep = () => {
          switch (step) {
             case 1: return (
                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">👤 Votre Profil</h2>
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">👤 Votre Profil Physiologique</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Sexe</label>
@@ -173,8 +176,8 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             )
              case 3: return (
                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⏱️ Quelles sont vos références ?</h2>
-                    <p className="text-center text-base text-gray-400 mb-6">Optionnel, mais essentiel pour personnaliser vos allures.</p>
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⏱️ Vos Références Chronométriques</h2>
+                    <p className="text-center text-base text-gray-400 mb-6">Essentiel pour calibrer votre VMA, Seuil et Allures Spécifiques.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div>
                             <label className="block mb-2 text-base text-gray-300">Allure en Endurance Fondamentale (EF)</label>
@@ -235,6 +238,22 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 </div>
             )
             case 7: return (
+                <div className="animate-fade-in">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🔋 Charge Mentale & Récupération</h2>
+                    <p className="text-center text-base text-gray-400 mb-6">Pour prévenir le sur-entraînement (Ratio ACWR), nous devons connaître votre charge de vie globale.</p>
+                    <div className="grid grid-cols-1 gap-4">
+                        {Object.values(LifeStress).map(stress => (
+                            <OptionCard 
+                                key={stress} 
+                                label={stress} 
+                                isSelected={formData.lifeStress === stress} 
+                                onClick={() => setFormData(f => ({ ...f, lifeStress: stress }))} 
+                            />
+                        ))}
+                    </div>
+                </div>
+            )
+            case 8: return (
                  <div className="animate-fade-in">
                     <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">💬 Préférences & Infos Complémentaires</h2>
                     <label className="block mb-2 text-base text-gray-300">Sur quel terrain courez-vous principalement ?</label>
@@ -242,13 +261,13 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                         {Object.values(Terrain).map(t => <OptionCard key={t} label={t} isSelected={formData.terrain === t} onClick={() => setFormData(f => ({ ...f, terrain: t }))} />)}
                     </div>
                     <label className="block mb-2 text-base text-gray-300">Avez-vous des blessures récentes ou des points de vigilance à nous communiquer ?</label>
-                    <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit, préférence pour 3 sorties/semaine, etc. (Facultatif)"></textarea>
+                    <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit, cycle menstruel irrégulier, préférence pour 3 sorties/semaine, etc."></textarea>
 
                     <div className="mt-8 pt-6 border-t border-white/10">
                         <div className="flex items-center justify-between p-4 rounded-lg bg-black/20">
                             <div>
-                                <label htmlFor="thinking-mode" className="font-semibold text-white">🧠 Mode Réflexion Avancée</label>
-                                <p className="text-sm text-gray-400">Analyse plus poussée pour un plan ultra-personnalisé (plus lent).</p>
+                                <label htmlFor="thinking-mode" className="font-semibold text-white">🧠 Mode Réflexion Avancée (Systémique)</label>
+                                <p className="text-sm text-gray-400">Analyse profonde basée sur l'étude "Optimisation Systémique" (Banister, ACWR, Polarisation). Plus lent.</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="thinking-mode" checked={useThinkingMode} onChange={e => setUseThinkingMode(e.target.checked)} className="sr-only peer" />
@@ -265,7 +284,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
     return (
         <div className="max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-5xl font-bold text-center text-white mb-2">Créez votre Plan d'Entraînement</h1>
-            <p className="text-xl text-center text-gray-300 mb-12">Un programme sur-mesure, conçu par IA, pour atteindre vos objectifs.</p>
+            <p className="text-xl text-center text-gray-300 mb-12">Un programme expert, basé sur la science de la performance et adapté à votre physiologie.</p>
 
             <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-12 shadow-2xl">
                 <ProgressIndicator currentStep={step} totalSteps={totalSteps} />
@@ -282,7 +301,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                     {step < totalSteps ? (
                         <GlowButton onClick={() => setStep(s => s + 1)}>Suivant</GlowButton>
                     ) : (
-                        <GlowButton onClick={handleGenerate}>Générer mon plan</GlowButton>
+                        <GlowButton onClick={handleGenerate}>Générer mon plan expert</GlowButton>
                     )}
                 </div>
             </div>
