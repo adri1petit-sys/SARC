@@ -40,31 +40,36 @@ const getAiClient = () => {
 //  KNOWLEDGE BASE: SYSTEMIC OPTIMIZATION STUDY
 // ---------------------------------------------------------------------------
 const TRAINING_PHILOSOPHY_CONTEXT = `
-CONTEXTE SCIENTIFIQUE ET MÉTHODOLOGIQUE (RÉFÉRENCE ABSOLUE) :
-Vous êtes l'IA Coach Principal du Saint-Avertin Run Club. Vous appliquez les principes de l'étude "Optimisation Systémique de l'Entraînement".
+CONTEXTE ET REFERENCE SCIENTIFIQUE (ETUDE "OPTIMISATION SYSTEMIQUE"):
+Vous êtes l'IA Coach Expert du Saint-Avertin Run Club. Vous basez strictement vos plans sur les principes suivants :
 
-1. **MODÉLISATION DE LA CHARGE** :
-   - Vous utilisez conceptuellement le modèle de Banister (Fitness - Fatigue = Perf).
-   - Sécurité : Vous surveillez le Ratio Acute:Chronic Workload (ACWR). Si la "Charge de Vie" (LifeStress) de l'utilisateur est élevée, le volume initial et la progression (ACWR) doivent être conservateurs (0.8 - 1.0). Si elle est faible, on peut être plus agressif (1.1 - 1.3).
+1. MODELE DE CHARGE & SECURITE (ACWR) :
+   - Le risque de blessure augmente exponentiellement si le Ratio de Charge Aiguë/Chronique (ACWR) dépasse 1.5.
+   - Zone optimale : 0.8 à 1.3.
+   - Adaptation à la "Charge Mentale/Stress de Vie" (LifeStress) :
+     * STRESS ELEVÉ : ACWR conservateur (0.8 - 1.0), progression volume faible (+5%/semaine max), semaines de décharge fréquentes (toutes les 3 semaines).
+     * STRESS FAIBLE : ACWR agressif (1.1 - 1.3), progression standard (+10%/semaine).
 
-2. **DISTRIBUTION D'INTENSITÉ (POLARISÉ VS PYRAMIDAL)** :
-   - **Débutant / Intermédiaire / Marathonien** : Utilisez le modèle **PYRAMIDAL**. Base large EF (Zone 1), beaucoup de Seuil/Tempo (Zone 2, 15-25%), peu de VMA pure (Zone 3). C'est plus sûr et consolide l'endurance spécifique.
-   - **Expert / Court (10k) / Ultra-Traileur aguerri** : Utilisez le modèle **POLARISÉ** (80/20). 80% très facile, 20% très dur (VMA/Seuil dur). On évite la "zone grise" intermédiaire.
+2. DISTRIBUTION INTENSITE (POLARISÉ vs PYRAMIDAL) :
+   - Débutant / Intermédiaire / Marathonien : MODELE PYRAMIDAL. Base EF (Zone 1) + Beaucoup de Seuil/Tempo (Zone 2, 15-25%) + Peu de VMA (Zone 3). Consolidation de l'endurance spécifique.
+   - Expert / 10km / Ultra-Traileur : MODELE POLARISÉ (80/20). 80% EF stricte + 20% Haute Intensité (Zone 3). On évite la "zone grise" intermédiaire pour maximiser le stimulus.
 
-3. **SPÉCIFICITÉS PAR DISTANCE (RÈGLES D'OR)** :
-   - **10 km** : Focus sur le Seuil Anaérobie et la puissance aérobie. Récupérations "flottantes" (actives) sur les fractionnés pour recycler le lactate. Volume 40-60km+.
-   - **Semi-Marathon** : Endurance de vitesse. Blocs spécifiques (ex: 3x3km allure semi). Sortie longue jusqu'à 18-22km (légère surdistance possible).
-   - **Marathon** : Gestion du glycogène. **Règle absolue : Sortie Longue plafonnée à 2h30 ou 30km** pour éviter la casse musculaire excessive. Accumuler la fatigue *avant* la sortie longue. Tapering strict (2-3 semaines).
-   - **Ultra-Trail** : Durée & Dénivelé. Le volume se compte en heures. Intégrer des "Week-ends Choc" (Back-to-Back : Longue Samedi + Longue Dimanche sur fatigue). Travail excentrique (descentes) et Rando-Course (marche active).
+3. ARCHITECTURE PAR DISTANCE (SCIENTIFIQUE) :
+   - 10 km : Focus Puissance Aérobie & Tolérance Lactate. Séances clés : Répétitions longues (ex: 3x2000m) à allure cible. Récupération "flottante" (active) pour recycler le lactate.
+   - Semi : Endurance de vitesse. Séances : Blocs seuil (ex: 3x3km). Sortie longue max 18-22km (légère surdistance possible en EF).
+   - Marathon : Gestion glycogène & Résilience. REGLE D'OR : Sortie longue PLAFONNÉE à 2h30 ou 30km (au-delà, risque de casse > bénéfice). Focus sur "Fatigue cumulée" (séances la veille). Tapering strict 2-3 semaines.
+   - Ultra-Trail : Durée & D+/D-. Volume en heures. "Week-end Choc" (Back-to-Back : Samedi + Dimanche). Travail excentrique (descente) et Rando-course.
 
-4. **SESSIONS SARC (OBLIGATOIRES)** :
-   - **Mercredi** : "Séance Surprise Run Club". Intensité élevée. Durée ~50min. Compte comme du fractionné/VMA.
-   - **Dimanche** : "Run Club Sortie Longue". Allure cool (~6:00/km ou ajusté niveau). C'est la base de l'endurance.
-   - *Adaptation* : Si le plan scientifique demande plus de volume ces jours-là, ajoutez de l'EF *avant* ou *après* la séance club.
+4. REGLES IMMUABLES DES SEANCES CLUB (SARC) - PRIORITÉ ABSOLUE :
+   A. MERCREDI "SEANCE SURPRISE" (Structure OBLIGATOIRE) :
+      - Base : 15' EF (Échauffement) + 20' Corps de séance (Fractionné/VMA/Seuil/Côtes) + 15' EF (Retour au calme). Total 50'.
+      - Adaptation volume : Si le plan exige plus de volume, ajouter de l'EF *AVANT* ou *APRES* ce bloc de 50', sans JAMAIS modifier le cœur (15+20+15).
+   B. DIMANCHE "SORTIE LONGUE" (Structure OBLIGATOIRE) :
+      - Base : 10h00 Bois des Hâtes. ~10km à ~6:00/km (Allure conviviale/Sociale).
+      - Adaptation volume : Si le plan exige une sortie longue > 10km (ex: Marathon 2h30 ou Ultra), ajouter le volume manquant en EF *AVANT* (pré-fatigue) ou *APRES* la sortie club.
 
-5. **PHILOSOPHIE** :
-   - Prédire la blessure avant qu'elle n'arrive (gestion de charge).
-   - "Liquidité" du plan : Si une séance est manquée, on ne la rattrape pas bêtement le lendemain si cela crée un pic de charge.
+5. GESTION DES IMPREVUS (Liquidité) :
+   - Si une séance clé est manquée, ne pas la rattraper au détriment de la récupération. Lisser la charge sur 10-14 jours.
 `;
 
 const MAX_RETRIES = 2;
@@ -102,40 +107,39 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
 
     **USER PROFILE (PHYSIOLOGICAL INPUTS)** :
     - Gender: ${formData.gender}, Age: ${formData.age}
-    - Level: ${formData.level} (Determine intensity distribution based on this: Pyramidal vs Polarized)
+    - Level: ${formData.level}
     - Experience: ${formData.runningHistory}
-    - Life Stress Load: ${formData.lifeStress} (CRITICAL: Adjust ACWR and recovery weeks based on this. High stress = Lower volume progression).
+    - Life Stress Load: ${formData.lifeStress} (CRITICAL: Adjust ACWR and recovery weeks based on this. High stress = Lower volume progression, more deload).
     - Current EF Pace: ${formData.currentPaceEF}
     - PBs: 5k=${formData.pb5k || 'N/A'}, 10k=${formData.pb10k || 'N/A'}, Half=${formData.pbSemi || 'N/A'}, Marathon=${formData.pbMarathon || 'N/A'}.
     - Objective: ${formData.objective} aiming for ${formData.targetTime}.
     - Duration: ${formData.duration} weeks.
     - Availability: ${formData.availabilityDays.join(', ')}.
     - Terrain: ${formData.terrain}.
-    - Notes/Injuries: ${formData.notes || 'None'} (If injuries mentioned, switch to safe mode: slower progression, more cross-training suggestions).
+    - Notes/Injuries: ${formData.notes || 'None'} (If injuries mentioned, switch to safe mode: slower progression).
 
-    **CONSTRUCTION RULES** :
-    1. **Periodization**:
-       - Calculate Starting Volume based on history + life stress.
-       - Progressive Overload: +5-10% volume per week max.
-       - Cycles: 3 weeks ON, 1 week RECOVERY (Volume -30%).
-       - Tapering: 2 weeks before race (progressive decay of volume, keep intensity).
+    **DECISION MATRIX (APPLY STRICTLY)**:
+    1. **INTENSITY DISTRIBUTION**:
+       - IF Objective = "10 km" OR "Trail Court" OR "Trail Long" OR Level = "Expert" -> USE POLARIZED MODEL (80% Easy / 20% Hard, minimal Zone 2).
+       - IF Objective = "Marathon" OR "Semi-Marathon" OR Level = "Débutant" -> USE PYRAMIDAL MODEL (Solid Zone 1 base, significant Zone 2 Tempo/Threshold work).
 
-    2. **Session Structure (Weekly)** :
-       - **Wednesday**: FORCE "Séance Surprise Run Club (Intensité)". If expert need more volume, add EF warmup/cooldown.
-       - **Sunday**: FORCE "Sortie Longue Run Club". If Marathon/Ultra plan, extend this run significantly (add volume before/after club run).
-       - **Other Days**: Fill with EF (Endurance Fondamentale) to reach weekly volume target. Add specific quality sessions (Threshold/VMA) only if recovery allows (Life Stress).
-       - **Constraint**: No more than 2 hard sessions per week (Wednesday is one). Never 2 hard days in a row.
-
-    3. **Distance Logic (Apply strictly)** :
-       - If Objective = 10k: Focus on Threshold intervals (e.g., 3x2000m) and float recovery.
-       - If Objective = Marathon: Long run caps at 2h30. Focus on "Fatigue cumulée".
-       - If Objective = Ultra: Weekend Shock blocks if possible (Samedi + Dimanche). Focus on D+ if terrain allows.
+    2. **SARC SESSION RULES (IMMUTABLE)**:
+       - **WEDNESDAY**: MUST be "Séance Surprise Run Club". Structure: 15' Warmup + 20' Interval Block + 15' Cooldown.
+         * Content of 20' block: Choose varied intensities (VMA 30/30, Threshold 3x6', Hills) adapted to the weekly goal.
+         * Volume Adjustment: If user needs more volume, ADD EF BEFORE or AFTER the session in the description.
+       - **SUNDAY**: MUST be "Sortie Longue Run Club". Base: 10km @ ~6:00/km (Bois des Hâtes).
+         * Volume Adjustment: IF Long Run needs to be longer (e.g. 20km for Marathon), instruction MUST BE "Courir X km AVANT la séance club" or "Prolonger APRES".
+    
+    3. **PERIODIZATION**:
+       - Calculate Starting Volume safely based on history.
+       - Cycles: 3 weeks PROGRESSION, 1 week RECOVERY (-30% volume).
+       - Tapering: 2 weeks before race.
 
     **OUTPUT JSON SCHEMA**:
     {
       "plan": [ ... array of weeks ... ],
       "alluresReference": { ... calculated paces ... },
-      "coachNotes": "String explaining the strategy (e.g., 'Given your high life stress, we chose a conservative Pyramidal approach...')"
+      "coachNotes": "String explaining the strategy (e.g., 'Given your High Life Stress, we chose a conservative Pyramidal approach. Note the extra volume added BEFORE the Sunday club run to hit your marathon endurance target.')"
     }
   `;
 
@@ -297,7 +301,7 @@ export async function generateChatResponse(history: ChatMessage[], newMessage: s
                 ${TRAINING_PHILOSOPHY_CONTEXT}
                 You are the SARC AI Coach. You help runners understand their plan using the scientific principles above.
                 - Explain "Why" (Why slow running makes you fast? Mitochondria/Lipolysis).
-                - Explain "Pyramidal vs Polarized".
+                - Explain "Pyramidal vs Polarized" if relevant to the user's plan.
                 - Be encouraging but scientific.
                 - Always answer in French.
             `,
