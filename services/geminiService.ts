@@ -34,18 +34,14 @@ const getMonday = (d: Date) => {
 export async function generateDetailedTrainingPlan(formData: FormData, useThinkingMode: boolean): Promise<DetailedTrainingPlan> {
   const ai = getAiClient();
   
-  // 1. CALCUL DES DATES ET DES SEMAINES
+  // 1. CALCUL DES DATES ET DES SEMAINES (Calendrier Réel)
   const targetDateObj = new Date(formData.targetDate);
   const today = new Date();
-  
-  // On cale le début de la première semaine au Lundi qui arrive (ou Lundi actuel si on est tôt ?)
-  // Disons que le plan commence le Lundi de la semaine courante pour simplifier l'affichage immédiat
   const planStartDate = getMonday(today);
   
   const totalDurationMs = targetDateObj.getTime() - planStartDate.getTime();
   const totalWeeksAvailable = Math.ceil(totalDurationMs / (7 * MS_PER_DAY));
   
-  // Calcul semaines maintien
   const prepDuration = formData.duration;
   let maintenanceWeeks = 0;
   
@@ -53,41 +49,72 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
       maintenanceWeeks = totalWeeksAvailable - prepDuration;
   }
   
-  // Dates clés
-  const prepStartDate = new Date(planStartDate.getTime() + (maintenanceWeeks * 7 * MS_PER_DAY));
-  
+  // 2. CONSTRUCTION DU PROMPT EXPERT
   const ultraContext = formData.ultraDetails 
     ? `ULTRA: ${formData.ultraDetails.type}, ${formData.ultraDetails.distance}, D+${formData.ultraDetails.elevationGain}.`
-    : "";
+    : `Objectif: ${formData.objective}`;
 
   const prompt = `
-    ROLE: SARC AI Coach. Saint-Avertin Run Club.
-    
-    CALENDAR CONTEXT:
-    - Today: ${today.toISOString().split('T')[0]}
-    - Race Date: ${formData.targetDate}
-    - Total Weeks Available: ${totalWeeksAvailable}
-    - Requested Prep Duration: ${prepDuration} weeks
-    - Maintenance Weeks Calculation: ${maintenanceWeeks} weeks before prep starts.
-    
-    PLAN STRUCTURE:
-    1. Weeks 1 to ${maintenanceWeeks}: "Maintien" Phase. 
-       - Volume = "${formData.currentVolume}" (Keep it easy/moderate).
-       - Maintain fitness, no overload.
-    2. Weeks ${maintenanceWeeks + 1} to ${totalWeeksAvailable}: "Préparation Spécifique".
-       - Progressive overload based on Objective: ${formData.objective}.
-       - Peak volume determined by objective.
+    ROLE: Coach Expert Endurance & Physiologie (Haut Niveau), SPÉCIALISTE MARATHON.
+    MISSION: Générer un plan d'entraînement MARATHON structuré, lisible et physiologiquement optimal, basé sur le cadre méthodologique Marathon du SARC.
 
-    RULES:
-    1. WEDNESDAY: "Fractionné Surprise" (15' EF + 20' Surprise + 15' EF). No details.
-    2. SUNDAY: "Run Club" (10km @ 6:00/km). Add EF before/after if needed for Long Run.
-    3. ASSIGN REAL DATES to every session starting from ${planStartDate.toISOString().split('T')[0]}.
-    
-    USER: ${formData.gender}, ${formData.age}yo, Level ${formData.level}.
-    Objective: ${formData.objective} in ${formData.targetTime}.
-    ${ultraContext}
+    CONTEXTE CALENDRIER :
+    - Date départ plan : ${planStartDate.toISOString().split('T')[0]}
+    - Date course : ${formData.targetDate}
+    - Semaines totales : ${totalWeeksAvailable}
+    - Semaines maintien : ${maintenanceWeeks} (Volume ≈ ${formData.currentVolume}).
+    - Semaines prépa : ${prepDuration} (Progression +10%/semaine max).
 
-    OUTPUT: JSON only.
+    --- CADRE MÉTHODOLOGIQUE MARATHON ---
+    1. PROFILS COUREURS & VOLUME CIBLE :
+       - Débutant (Objectif finir, >4h15) : 3-4 séances/sem, Pic 40-60 km/sem. SL max 2h30.
+       - Intermédiaire (3h30-4h15) : 4-5 séances/sem, Pic 60-90 km/sem. SL max 30-32 km.
+       - Avancé (2h45-3h30) : 5-7 séances/sem, Pic 90-110 km/sem. SL spécifique avec blocs AS42.
+       - Élite (<2h40) : 7+ séances/sem, Pic >110 km/sem. Méthodes avancées (Canova).
+
+    2. INVARIANTS PHYSIOLOGIQUES :
+       - 80-90% du volume en Endurance Fondamentale (EF).
+       - Sortie Longue (SL) : 1x/semaine OBLIGATOIRE (sauf affûtage). Max 30-35% du volume hebdo.
+       - Phase Spécifique : Intégration progressive de l'allure AS42.
+       - Affûtage (Taper) : 2-3 dernières semaines, baisse volume (20->40->60%), maintien intensité.
+
+    RÈGLES DE FORMAT DES SÉANCES (STRICTES - SARC) :
+    
+    FORMAT 1 : SÉANCE 100% EF (FOOTING SIMPLE)
+    - Si la séance est "Endurance Fondamentale" uniquement.
+    - NE PAS CRÉER DE BLOCS échauffement/corps/retour.
+    - Contenu : "10 km en endurance fondamentale (EF), allure confortable." (1 seule ligne).
+    - Champs 'warmup', 'mainBlock', 'cooldown' DOIVENT être vides.
+
+    FORMAT 2 : SÉANCE QUALITATIVE (VMA, SEUIL, ASxx, CÔTES)
+    - Structure OBLIGATOIRE :
+      - Warmup: (ex: "20' EF + 3 x 80m accélérations")
+      - Main Block: (ex: "3 x 10' AS42, R=2' trot")
+      - Cooldown: (ex: "10' EF")
+      - Contenu : Concaténation lisible ("20' EF + 3 x 10' AS42 (R=2') + 10' EF")
+
+    FORMAT 3 : SORTIE LONGUE STRUCTURÉE (DIMANCHE)
+    - Base : "10 km EF @ 6:00/km avec le Run Club (Bois des Hâtes)".
+    - Si SL > 10km : Ajouter EF avant/après (répartition 50/50).
+    - Warmup: (ex: "5 km EF en solo")
+    - Main Block: "10 km EF @ 6:00/km avec le Run Club"
+    - Cooldown: (ex: "5 km EF en solo")
+    - Contenu: "5 km EF + 10 km Run Club + 5 km EF"
+
+    RÈGLE SPÉCIALE MERCREDI (FIXE) :
+    - Type : "Fractionné Surprise"
+    - Warmup: "15' EF"
+    - Main Block: "20' fractionné surprise (séance décidée par les coachs)"
+    - Cooldown: "15' EF"
+    - Contenu: "15' EF + 20' Fractionné surprise + 15' EF"
+
+    PROFIL ATHLÈTE :
+    - ${formData.gender}, ${formData.age} ans, Niveau ${formData.level}.
+    - Volume actuel : ${formData.currentVolume}.
+    - Objectif : ${ultraContext} en ${formData.targetTime}.
+    - Dispo : ${formData.availabilityDays.join(', ')}.
+
+    OUTPUT : JSON uniquement respectant le schéma.
   `;
 
   const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
@@ -118,7 +145,10 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
                                       jour: { type: Type.STRING },
                                       date: { type: Type.STRING },
                                       type: { type: Type.STRING },
-                                      contenu: { type: Type.STRING },
+                                      contenu: { type: Type.STRING }, // Texte complet concaténé
+                                      warmup: { type: Type.STRING }, // Champ spécifique
+                                      mainBlock: { type: Type.STRING }, // Champ spécifique
+                                      cooldown: { type: Type.STRING }, // Champ spécifique
                                       objectif: { type: Type.STRING },
                                       volume: { type: Type.NUMBER },
                                       allure: { type: Type.STRING },

@@ -93,7 +93,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         setIsGenerating(true);
         setError(null);
         setProgress(0);
-        setLoadingMessage("Calcul du calendrier inversé...");
+        setLoadingMessage("Calcul du VDOT & Allures...");
         try {
             const generatedPlan = await generateDetailedTrainingPlan(formData, useThinkingMode);
             setProgress(100);
@@ -106,7 +106,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
 
     useEffect(() => {
         if (isGenerating) {
-            const duration = useThinkingMode ? 6000 : 3000; 
+            const duration = useThinkingMode ? 8000 : 4000; 
             const intervalTime = 100;
             const steps = duration / intervalTime;
             let currentStep = 0;
@@ -116,10 +116,11 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 const newProgress = (currentStep / steps) * 100;
                 setProgress(Math.min(newProgress, 99));
 
-                if (newProgress < 30) setLoadingMessage("Synchronisation des dates...");
-                else if (newProgress < 60) setLoadingMessage("Génération des semaines de maintien...");
-                else if (newProgress < 80) setLoadingMessage("Construction du cycle spécifique...");
-                else setLoadingMessage("Finalisation du calendrier...");
+                if (newProgress < 20) setLoadingMessage("Calcul des phases physiologiques (Base > Spé > Taper)...");
+                else if (newProgress < 40) setLoadingMessage("Analyse du calendrier & rétro-planning...");
+                else if (newProgress < 60) setLoadingMessage("Modélisation de la déplétion glycogénique...");
+                else if (newProgress < 80) setLoadingMessage("Structure des séances clés & sorties longues...");
+                else setLoadingMessage("Finalisation du plan...");
 
                 if (currentStep >= steps) clearInterval(interval);
             }, intervalTime);

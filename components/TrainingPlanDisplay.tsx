@@ -7,8 +7,8 @@ const getIntensityColor = (type: string) => {
     const lowerType = type.toLowerCase();
     if (lowerType.includes('fondamentale') || lowerType.includes('ef')) return 'bg-green-500/20 text-green-300 border-green-500/30';
     if (lowerType.includes('seuil') || lowerType.includes('tempo')) return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-    if (lowerType.includes('vma') || lowerType.includes('fractionné')) return 'bg-red-500/20 text-red-300 border-red-500/30';
-    if (lowerType.includes('longue')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+    if (lowerType.includes('vma') || lowerType.includes('fractionné') || lowerType.includes('surprise')) return 'bg-red-500/20 text-red-300 border-red-500/30';
+    if (lowerType.includes('longue') || lowerType.includes('club')) return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
     if (lowerType.includes('renforcement') || lowerType.includes('côtes')) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
     if (lowerType.includes('repos')) return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
     return 'bg-gray-700/50 text-gray-400 border-gray-600/50';
@@ -36,7 +36,6 @@ const isDateInWeek = (dateStr: string, weekStartStr: string, weekEndStr: string)
     return target >= start && target <= end;
 };
 
-// ... FeedbackIcon, SessionSuggestionModal components stay same ...
 const FeedbackIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
 );
@@ -129,7 +128,15 @@ const SessionCard: React.FC<{ session: DetailedSession, feedback: SessionFeedbac
                  <input type="checkbox" checked={isCompleted} onChange={onToggle} className="form-checkbox h-5 w-5 rounded bg-white/10 border-white/20 text-[#00AFED] cursor-pointer"/>
             </div>
             {isSurprise && !isCompleted && <p className="text-xs text-[#00AFED] italic mb-1">🌀 Surprise Coachs</p>}
-            <p onClick={onInfoClick} className={`text-sm md:text-base flex-grow line-clamp-3 cursor-pointer hover:text-white transition-colors ${isCompleted ? 'text-gray-500' : 'text-gray-300'}`}>{session.contenu}</p>
+            
+            {/* Structured Content Display */}
+            <div onClick={onInfoClick} className={`text-sm md:text-base flex-grow cursor-pointer hover:text-white transition-colors ${isCompleted ? 'text-gray-500' : 'text-gray-300'}`}>
+                {session.warmup && <p className="mb-1"><span className="font-semibold text-xs uppercase opacity-70">Warm-up:</span> {session.warmup}</p>}
+                {session.mainBlock && <p className="mb-1 font-semibold text-white"><span className="font-normal text-xs uppercase opacity-70 text-gray-300">Bloc:</span> {session.mainBlock}</p>}
+                {session.cooldown && <p className="mb-1"><span className="font-semibold text-xs uppercase opacity-70">Cool-down:</span> {session.cooldown}</p>}
+                {!session.warmup && <p className="line-clamp-3">{session.contenu}</p>}
+            </div>
+
             <div className="flex justify-between items-center mt-3 pt-2 border-t border-white/10">
                 {isCompleted && hasNotes ? <FeedbackIcon /> : <div/>}
                 <span className={`text-sm font-semibold ${isCompleted ? 'text-gray-500' : 'text-white'}`}>{session.type} • {session.volume} km</span>
@@ -138,7 +145,6 @@ const SessionCard: React.FC<{ session: DetailedSession, feedback: SessionFeedbac
     );
 };
 
-// ... PDFExportTemplate stays same but use session.date ...
 const PDFExportTemplate: React.FC<{ plan: DetailedTrainingPlan, userProfile: FormData }> = ({ plan, userProfile }) => (
     <div id="pdf-content" className="p-8 bg-white text-gray-800" style={{ width: '210mm', minHeight: '297mm' }}>
         <h1 className="text-3xl font-bold text-[#183C89] mb-4">Plan SARC - {userProfile.objective}</h1>
@@ -149,8 +155,9 @@ const PDFExportTemplate: React.FC<{ plan: DetailedTrainingPlan, userProfile: For
                     <h3 className="text-xl font-bold mb-2 text-[#183C89] border-b border-[#00AFED]">Semaine {week.semaine} - {week.phase}</h3>
                     <div className="grid grid-cols-1 gap-1">
                         {week.jours.map((session, index) => (
-                            <div key={index} className="p-1 border-b text-sm">
-                                <span className="font-bold">{session.jour} {formatDate(session.date)}</span>: {session.type} ({session.volume} km)
+                            <div key={index} className="p-2 border-b text-sm">
+                                <span className="font-bold">{session.jour} {formatDate(session.date)}</span> - {session.type} ({session.volume} km)
+                                <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{session.contenu}</div>
                             </div>
                         ))}
                     </div>
@@ -183,29 +190,24 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const { plan, userProfile, completionStatus, id: planId } = savedPlan;
     const hasCompletedSessions = Object.values(completionStatus).some(s => (s as SessionFeedback).completed);
 
-    // Auto-scroll to current week on mount
     useEffect(() => {
         const today = new Date().toISOString().split('T')[0];
         let currentWeekIndex = -1;
 
-        // Find current week based on date
         plan.plan.forEach((week) => {
              if (isDateInWeek(today, week.startDate, week.endDate)) {
                  currentWeekIndex = week.semaine;
              }
         });
 
-        // If not found (plan hasn't started), default to week 1. If ended, last week.
         if (currentWeekIndex === -1) {
             const firstWeekStart = plan.plan[0].startDate;
             if (new Date(today) < new Date(firstWeekStart)) currentWeekIndex = 1;
             else currentWeekIndex = plan.plan[plan.plan.length - 1].semaine;
         }
 
-        // Expand current and next week
         setExpandedWeeks(new Set([currentWeekIndex, currentWeekIndex + 1]));
 
-        // Scroll
         setTimeout(() => {
             const el = weekRefs.current[currentWeekIndex];
             if (el) {
@@ -252,7 +254,7 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     };
 
     return (
-        <div className="animate-fade-in relative">
+        <div className="animate-fade-in relative pb-10"> {/* Reduced pb-20 to pb-10 */}
              <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
                 <PDFExportTemplate plan={plan} userProfile={userProfile} />
             </div>
@@ -282,7 +284,7 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                  </div>
             )}
 
-            <div className="space-y-6 pb-20 no-print">
+            <div className="space-y-6 no-print">
                 {plan.plan.map((week, weekIndex) => {
                     const isExpanded = expandedWeeks.has(week.semaine);
                     const today = new Date().toISOString().split('T')[0];
@@ -291,7 +293,7 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                     return (
                         <div 
                             key={week.semaine} 
-                            ref={el => weekRefs.current[week.semaine] = el}
+                            ref={(el) => { weekRefs.current[week.semaine] = el; }}
                             className={`rounded-2xl border transition-all duration-300 ${isCurrent ? 'bg-[#183C89]/30 border-[#00AFED] shadow-lg shadow-[#00AFED]/20 transform scale-[1.01]' : 'bg-black/20 border-white/10 opacity-90'}`}
                         >
                              <div 
@@ -345,9 +347,12 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                             <button onClick={() => setSelectedSession(null)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
                         </div>
                         <div className="space-y-4 text-gray-300">
-                             <div className="bg-white/5 p-4 rounded-lg">
-                                <p className="font-medium text-white mb-2">Contenu</p>
-                                <p>{selectedSession.session.contenu}</p>
+                             <div className="bg-white/5 p-4 rounded-lg space-y-2">
+                                <p className="font-medium text-white mb-2 uppercase text-sm border-b border-white/10 pb-1">Détails de la séance</p>
+                                {selectedSession.session.warmup && <p><span className="text-gray-400 text-xs uppercase font-bold">Échauffement :</span> {selectedSession.session.warmup}</p>}
+                                {selectedSession.session.mainBlock && <p className="bg-white/5 p-2 rounded"><span className="text-[#00AFED] text-xs uppercase font-bold block mb-1">Bloc Principal :</span> {selectedSession.session.mainBlock}</p>}
+                                {selectedSession.session.cooldown && <p><span className="text-gray-400 text-xs uppercase font-bold">Retour au calme :</span> {selectedSession.session.cooldown}</p>}
+                                {(!selectedSession.session.warmup && !selectedSession.session.mainBlock) && <div className="whitespace-pre-wrap">{selectedSession.session.contenu}</div>}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-white/5 p-3 rounded-lg"><p className="text-xs text-gray-400 uppercase">Volume</p><p className="text-white font-bold">{selectedSession.session.volume} km</p></div>

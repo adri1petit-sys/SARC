@@ -88,7 +88,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
 
     if (view === 'generator') {
         return (
-             <main className="container mx-auto px-6 pt-24 pb-12">
+             <main className="container mx-auto px-6 pt-24 pb-12 min-h-screen flex flex-col">
                 <GeneratorPage 
                     onPlanGenerated={handlePlanGenerated}
                     onCancel={() => setView('dashboard')}
@@ -98,7 +98,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
     }
 
     return (
-        <main className="container mx-auto px-6 pt-24 pb-12">
+        <main className="container mx-auto px-6 pt-24 pb-12 min-h-screen flex flex-col">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
                 Bonjour {user.name}, prêt à vous entraîner ?
             </h1>
@@ -106,43 +106,45 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                 Bienvenue sur votre tableau de bord personnel.
             </p>
 
-            {activePlan ? (
-                <TrainingPlanDisplay
-                    savedPlan={activePlan}
-                    onUpdateCompletion={handleUpdateCompletion}
-                    onNewPlanRequest={handleNewPlanRequest}
-                    onOptimizeRequest={handleOptimizePlan}
-                    isOptimizing={isOptimizing}
-                    optimizationSuggestions={optimizationSuggestions}
-                    optimizationError={optimizationError}
-                />
-            ) : (
-                <div className="text-center bg-black/20 border border-white/10 rounded-2xl p-12">
-                    <h2 className="text-2xl font-bold mb-2">Vous n'avez pas encore de plan d'entraînement.</h2>
-                    <p className="text-gray-300 mb-6">Créez votre premier plan personnalisé pour commencer votre progression !</p>
-                    <button onClick={() => setView('generator')} className="px-8 py-3 text-lg font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#00AFED]/50 glow-shadow-hover">
-                        🚀 Générer mon premier plan
-                    </button>
-                </div>
-            )}
-
-            {plans.length > 1 && (
-                <div className="mt-16">
-                    <h2 className="text-2xl font-bold text-white mb-4">Historique des plans</h2>
-                    <div className="space-y-3">
-                        {plans.map(plan => (
-                             <div key={plan.id} onClick={() => {
-                                 setActivePlan(plan)
-                                 setOptimizationSuggestions(null);
-                                 setOptimizationError(null);
-                                }} className={`p-4 border rounded-lg cursor-pointer transition-colors ${activePlan?.id === plan.id ? 'bg-[#00AFED]/20 border-[#00AFED]' : 'bg-white/5 border-white/10 hover:border-white/30'}`}>
-                                <p className="font-semibold">{plan.userProfile.objective} - {plan.userProfile.duration} semaines</p>
-                                <p className="text-sm text-gray-400">Créé le {new Date(plan.createdAt).toLocaleDateString('fr-FR')}</p>
-                            </div>
-                        ))}
+            <div className="flex-1">
+                {activePlan ? (
+                    <TrainingPlanDisplay
+                        savedPlan={activePlan}
+                        onUpdateCompletion={handleUpdateCompletion}
+                        onNewPlanRequest={handleNewPlanRequest}
+                        onOptimizeRequest={handleOptimizePlan}
+                        isOptimizing={isOptimizing}
+                        optimizationSuggestions={optimizationSuggestions}
+                        optimizationError={optimizationError}
+                    />
+                ) : (
+                    <div className="text-center bg-black/20 border border-white/10 rounded-2xl p-12 mt-10">
+                        <h2 className="text-2xl font-bold mb-2">Vous n'avez pas encore de plan d'entraînement.</h2>
+                        <p className="text-gray-300 mb-6">Créez votre premier plan personnalisé pour commencer votre progression !</p>
+                        <button onClick={() => setView('generator')} className="px-8 py-3 text-lg font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#00AFED]/50 glow-shadow-hover">
+                            🚀 Générer mon premier plan
+                        </button>
                     </div>
-                </div>
-            )}
+                )}
+
+                {plans.length > 1 && (
+                    <div className="mt-16">
+                        <h2 className="text-2xl font-bold text-white mb-4">Historique des plans</h2>
+                        <div className="space-y-3">
+                            {plans.map(plan => (
+                                <div key={plan.id} onClick={() => {
+                                    setActivePlan(plan)
+                                    setOptimizationSuggestions(null);
+                                    setOptimizationError(null);
+                                    }} className={`p-4 border rounded-lg cursor-pointer transition-colors ${activePlan?.id === plan.id ? 'bg-[#00AFED]/20 border-[#00AFED]' : 'bg-white/5 border-white/10 hover:border-white/30'}`}>
+                                    <p className="font-semibold">{plan.userProfile.objective} - {plan.userProfile.duration} semaines</p>
+                                    <p className="text-sm text-gray-400">Créé le {new Date(plan.createdAt).toLocaleDateString('fr-FR')}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </main>
     );
 };

@@ -92,12 +92,16 @@ export interface DetailedSession {
     jour: string; // Lundi, Mardi...
     date: string; // YYYY-MM-DD
     type: string;
-    contenu: string;
+    contenu: string; // Texte structuré complet (Échauffement, Bloc, Retour au calme)
     objectif: string;
     volume: number;
     allure: string;
     frequenceCardiaque: string;
     rpe: string;
+    // Nouveaux champs pour structure détaillée
+    warmup?: string;
+    mainBlock?: string;
+    cooldown?: string;
 }
 
 export interface DetailedTrainingPlan {
