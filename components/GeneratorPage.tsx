@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress, CurrentVolume } from '../types';
-import type { FormData, DetailedTrainingPlan, UltraDetails } from '../types';
+import type { FormData, DetailedTrainingPlan, UltraDetails, TrailShortDetails } from '../types';
 import { generateDetailedTrainingPlan } from '../services/geminiService';
 
 const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({ currentStep, totalSteps }) => (
@@ -52,6 +52,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         // Step 4
         objective: Objective.TEN_K,
         ultraDetails: undefined,
+        trailShortDetails: undefined,
         // Step 5
         targetTime: "45 minutes",
         // Step 6: Date
@@ -73,6 +74,13 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         terrainType: "Mixte"
     });
 
+    const [trailShortForm, setTrailShortForm] = useState<TrailShortDetails>({
+        distance: "25 km",
+        elevationGain: "1000m",
+        terrainType: "Mixte",
+        targetTime: "3h30",
+    });
+
     const [useThinkingMode, setUseThinkingMode] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -80,20 +88,40 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
     const [loadingMessage, setLoadingMessage] = useState("Analyse de votre profil...");
 
     const isUltra = formData.objective === Objective.ULTRA_DISTANCE;
+    const isTrailShort = formData.objective === Objective.TRAIL_SHORT;
 
     useEffect(() => {
         if (isUltra) {
-            setFormData(prev => ({ ...prev, ultraDetails: ultraForm }));
+            setFormData(prev => ({ ...prev, ultraDetails: ultraForm, trailShortDetails: undefined }));
+        } else if (isTrailShort) {
+            setFormData(prev => ({ ...prev, trailShortDetails: trailShortForm, ultraDetails: undefined }));
         } else {
-            setFormData(prev => ({ ...prev, ultraDetails: undefined }));
+            setFormData(prev => ({ ...prev, ultraDetails: undefined, trailShortDetails: undefined }));
         }
-    }, [isUltra, ultraForm]);
+    }, [isUltra, isTrailShort, ultraForm, trailShortForm]);
 
     const handleGenerate = async () => {
         setIsGenerating(true);
         setError(null);
         setProgress(0);
-        setLoadingMessage("Calcul du VDOT & Allures...");
+        
+        // Message initial dépendant de l'objectif
+        if (formData.objective === Objective.FIVE_K) {
+            setLoadingMessage("Calcul de la VMA et des allures spécifiques...");
+        } else if (formData.objective === Objective.TEN_K) {
+            setLoadingMessage("Analyse AS10 et Seuil Lactique...");
+        } else if (formData.objective === Objective.HALF_MARATHON) {
+            setLoadingMessage("Calibration Seuil Anaérobie et Économie de course...");
+        } else if (formData.objective === Objective.MARATHON) {
+            setLoadingMessage("Modélisation de la durabilité et du glycogène...");
+        } else if (formData.objective === Objective.TRAIL_SHORT) {
+            setLoadingMessage("Analyse du Ratio D+/Heure et charge excentrique...");
+        } else if (formData.objective === Objective.ULTRA_DISTANCE) {
+            setLoadingMessage("Planification FatMax et Weekend Choc...");
+        } else {
+            setLoadingMessage("Initialisation du plan...");
+        }
+
         try {
             const generatedPlan = await generateDetailedTrainingPlan(formData, useThinkingMode);
             setProgress(100);
@@ -116,17 +144,41 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 const newProgress = (currentStep / steps) * 100;
                 setProgress(Math.min(newProgress, 99));
 
-                if (newProgress < 20) setLoadingMessage("Calcul des phases physiologiques (Base > Spé > Taper)...");
-                else if (newProgress < 40) setLoadingMessage("Analyse du calendrier & rétro-planning...");
-                else if (newProgress < 60) setLoadingMessage("Modélisation de la déplétion glycogénique...");
-                else if (newProgress < 80) setLoadingMessage("Structure des séances clés & sorties longues...");
-                else setLoadingMessage("Finalisation du plan...");
+                // Messages dynamiques selon l'objectif
+                const is5k = formData.objective === Objective.FIVE_K;
+                const is10k = formData.objective === Objective.TEN_K;
+                const isSemi = formData.objective === Objective.HALF_MARATHON;
+                const isMarathon = formData.objective === Objective.MARATHON;
+                const isTrailShort = formData.objective === Objective.TRAIL_SHORT;
+                const isUltra = formData.objective === Objective.ULTRA_DISTANCE;
+
+                if (newProgress < 30) {
+                    setLoadingMessage("Synchronisation du calendrier réel...");
+                } else if (newProgress < 60) {
+                    if (is5k) setLoadingMessage("Structuration des blocs VMA & Seuil...");
+                    else if (is10k) setLoadingMessage("Calibration du volume AS10...");
+                    else if (isSemi) setLoadingMessage("Planification des blocs au Seuil et AS21...");
+                    else if (isMarathon) setLoadingMessage("Planification des sorties longues...");
+                    else if (isTrailShort) setLoadingMessage("Intégration du travail en côte...");
+                    else if (isUltra) setLoadingMessage("Calcul des volumes horaires et D+...");
+                    else setLoadingMessage("Génération des semaines d'entraînement...");
+                } else if (newProgress < 85) {
+                    if (is5k) setLoadingMessage("Intégration du travail neuromusculaire...");
+                    else if (is10k) setLoadingMessage("Optimisation de la fraction de VO2max...");
+                    else if (isSemi) setLoadingMessage("Ajustement de la récupération...");
+                    else if (isMarathon) setLoadingMessage("Vérification des ratios de charge...");
+                    else if (isTrailShort) setLoadingMessage("Calcul de l'affûtage mécanique...");
+                    else if (isUltra) setLoadingMessage("Optimisation de la gestion du sommeil et nutrition...");
+                    else setLoadingMessage("Finalisation des séances...");
+                } else {
+                    setLoadingMessage("Derniers ajustements...");
+                }
 
                 if (currentStep >= steps) clearInterval(interval);
             }, intervalTime);
             return () => clearInterval(interval);
         }
-    }, [isGenerating, useThinkingMode]);
+    }, [isGenerating, useThinkingMode, formData.objective]);
 
     if (isGenerating) {
          return (
@@ -266,6 +318,37 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                         </div>
                     );
                 }
+
+                if (isTrailShort) {
+                    return (
+                        <div className="animate-fade-in">
+                            <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⛰️ Détails Trail Court (&lt;42km)</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block mb-2 text-base text-gray-300">Distance de la course</label>
+                                    <input type="text" value={trailShortForm.distance} onChange={e => setTrailShortForm(f => ({...f, distance: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 25 km"/>
+                                </div>
+                                <div>
+                                    <label className="block mb-2 text-base text-gray-300">Dénivelé positif (D+)</label>
+                                    <input type="text" value={trailShortForm.elevationGain} onChange={e => setTrailShortForm(f => ({...f, elevationGain: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 1200m"/>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block mb-2 text-base text-gray-300">Type de terrain</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        {["Peu technique", "Mixte", "Très technique"].map(t => (
+                                            <OptionCard key={t} label={t} size="small" isSelected={trailShortForm.terrainType === t} onClick={() => setTrailShortForm(f => ({ ...f, terrainType: t as any }))} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block mb-2 text-base text-gray-300">Temps visé (optionnel)</label>
+                                    <input type="text" value={trailShortForm.targetTime || ""} onChange={e => setTrailShortForm(f => ({...f, targetTime: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 3h30"/>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
                 return (
                     <div className="animate-fade-in">
                         <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏆 Temps visé</h2>

@@ -3,6 +3,30 @@ import type { DetailedTrainingPlan, DetailedSession, FormData, SavedPlan, Comple
 import { getSessionSuggestion } from '../services/geminiService';
 import FeedbackModal from './FeedbackModal';
 
+// --- PDF HELPERS ---
+const MARGIN_TOP = 40;
+const MARGIN_BOTTOM = 40;
+
+function getPageHeight(doc: any): number {
+  return doc.internal?.pageSize?.getHeight?.() ?? doc.internal.pageSize.height;
+}
+
+function newPage(doc: any): number {
+  doc.addPage();
+  return MARGIN_TOP;
+}
+
+function ensureSpace(doc: any, currentY: number, neededHeight: number): number {
+  const pageHeight = getPageHeight(doc);
+  if (currentY + neededHeight > pageHeight - MARGIN_BOTTOM) {
+    doc.addPage();
+    return MARGIN_TOP;
+  }
+  return currentY;
+}
+
+// --- UI HELPERS ---
+
 const getIntensityColor = (type: string) => {
     const lowerType = type.toLowerCase();
     if (lowerType.includes('fondamentale') || lowerType.includes('ef')) return 'bg-green-500/20 text-green-300 border-green-500/30';
@@ -35,6 +59,8 @@ const isDateInWeek = (dateStr: string, weekStartStr: string, weekEndStr: string)
     const end = new Date(weekEndStr).getTime();
     return target >= start && target <= end;
 };
+
+// --- SUB-COMPONENTS ---
 
 const FeedbackIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
@@ -130,7 +156,7 @@ const SessionCard: React.FC<{ session: DetailedSession, feedback: SessionFeedbac
             {isSurprise && !isCompleted && <p className="text-xs text-[#00AFED] italic mb-1">🌀 Surprise Coachs</p>}
             
             {/* Structured Content Display */}
-            <div onClick={onInfoClick} className={`text-sm md:text-base flex-grow cursor-pointer hover:text-white transition-colors ${isCompleted ? 'text-gray-500' : 'text-gray-300'}`}>
+            <div onClick={onInfoClick} className={`text-sm md:text-base flex-grow cursor-pointer hover:text-white transition-colors whitespace-pre-line ${isCompleted ? 'text-gray-500' : 'text-gray-300'}`}>
                 {session.warmup && <p className="mb-1"><span className="font-semibold text-xs uppercase opacity-70">Warm-up:</span> {session.warmup}</p>}
                 {session.mainBlock && <p className="mb-1 font-semibold text-white"><span className="font-normal text-xs uppercase opacity-70 text-gray-300">Bloc:</span> {session.mainBlock}</p>}
                 {session.cooldown && <p className="mb-1"><span className="font-semibold text-xs uppercase opacity-70">Cool-down:</span> {session.cooldown}</p>}
@@ -145,11 +171,22 @@ const SessionCard: React.FC<{ session: DetailedSession, feedback: SessionFeedbac
     );
 };
 
+const LexiqueItem: React.FC<{ label: string; pace: string; description: string }> = ({ label, pace, description }) => (
+    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+        <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-[#00AFED] text-lg">{label}</h3>
+            <span className="px-3 py-1 bg-[#00AFED]/20 text-white rounded-full text-sm font-mono border border-[#00AFED]/30">{pace}</span>
+        </div>
+        <p className="text-sm text-gray-300 leading-relaxed">{description}</p>
+    </div>
+);
+
+// Template for HTML2PDF - Weeks ONLY (Lexique is handled programmatically)
 const PDFExportTemplate: React.FC<{ plan: DetailedTrainingPlan, userProfile: FormData }> = ({ plan, userProfile }) => (
     <div id="pdf-content" className="p-8 bg-white text-gray-800" style={{ width: '210mm', minHeight: '297mm' }}>
         <h1 className="text-3xl font-bold text-[#183C89] mb-4">Plan SARC - {userProfile.objective}</h1>
         <p className="mb-8">Objectif: {formatDate(plan.raceDate)}</p>
-        <div className="space-y-6">
+        <div className="space-y-6 mb-8">
             {plan.plan.map((week) => (
                 <div key={week.semaine} className="break-inside-avoid">
                     <h3 className="text-xl font-bold mb-2 text-[#183C89] border-b border-[#00AFED]">Semaine {week.semaine} - {week.phase}</h3>
@@ -171,15 +208,14 @@ interface TrainingPlanDisplayProps {
     savedPlan: SavedPlan;
     onUpdateCompletion: (planId: string, newStatus: CompletionStatus) => void;
     onNewPlanRequest: () => void;
-    onOptimizeRequest: () => void;
-    isOptimizing: boolean;
-    optimizationSuggestions: OptimizationSuggestion[] | null;
-    optimizationError: string | null;
+    onOptimizeRequest?: () => void;
+    isOptimizing?: boolean;
+    optimizationSuggestions?: OptimizationSuggestion[] | null;
+    optimizationError?: string | null;
 }
 
 const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({ 
-    savedPlan, onUpdateCompletion, onNewPlanRequest,
-    onOptimizeRequest, isOptimizing, optimizationSuggestions, optimizationError
+    savedPlan, onUpdateCompletion, onNewPlanRequest
 }) => {
     const [selectedSession, setSelectedSession] = useState<{session: DetailedSession, feedback: SessionFeedback | undefined} | null>(null);
     const [feedbackTarget, setFeedbackTarget] = useState<{ weekIndex: number, sessionIndex: number, session: DetailedSession } | null>(null);
@@ -187,8 +223,7 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set());
     const weekRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
-    const { plan, userProfile, completionStatus, id: planId } = savedPlan;
-    const hasCompletedSessions = Object.values(completionStatus).some(s => (s as SessionFeedback).completed);
+    const { plan, completionStatus, id: planId } = savedPlan;
 
     useEffect(() => {
         const today = new Date().toISOString().split('T')[0];
@@ -249,40 +284,98 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const handlePrint = () => {
         const element = document.getElementById('pdf-content');
         if (!element || !(window as any).html2pdf) return;
-        const opt = { margin: 10, filename: `plan-sarc.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-        (window as any).html2pdf().from(element).set(opt).save();
+
+        const allures = plan.alluresReference;
+
+        const opt = {
+            margin: 0,
+            filename: `plan-sarc.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
+        };
+
+        (window as any).html2pdf().from(element).set(opt).toPdf().get('pdf').then((doc: any) => {
+            let y = newPage(doc);
+
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(18);
+            y = ensureSpace(doc, y, 24);
+            doc.text("Lexique & Allures Personnelles", 40, y);
+            y += 18;
+
+            doc.setDrawColor(0, 175, 237);
+            doc.setLineWidth(1);
+            doc.line(40, y, doc.internal.pageSize.width - 40, y);
+            y += 12;
+
+            doc.setFont("Helvetica", "normal");
+            doc.setFontSize(10);
+            y = ensureSpace(doc, y, 30);
+            doc.text(
+            "Vos allures de référence pour suivre ce plan, calculées selon votre profil.",
+            40,
+            y
+            );
+            y += 20;
+
+            const items = [
+                { label: "EF – Endurance Fondamentale", description: "Allure confortable, respiration aisée, tu peux parler en phrases complètes.", pace: allures.ef },
+                { label: "Seuil", description: "Allure soutenue mais contrôlée, juste sous LT2.", pace: allures.seuil },
+                { label: "VMA – Vitesse Max Aérobie", description: "Allure très intense utilisée pour l'intervallé court.", pace: allures.vma },
+                { label: "AS10 (Allure 10 km)", description: "Allure cible 10 km.", pace: allures.as10 },
+                { label: "AS21 (Allure Semi)", description: "Allure Semi-Marathon.", pace: allures.as21 },
+                { label: "AS42 (Allure Marathon)", description: "Allure Marathon.", pace: allures.as42 }
+            ];
+
+            const cardHeight = 52;
+            const cardSpacing = 10;
+            const left = 40;
+            const right = doc.internal.pageSize.width - 40;
+
+            items.forEach(item => {
+                y = ensureSpace(doc, y, cardHeight + cardSpacing);
+
+                doc.setFillColor(248, 249, 252);
+                doc.setDrawColor(220, 225, 235);
+                doc.roundedRect(left, y, right - left, cardHeight, 4, 4, "FD");
+
+                let textY = y + 16;
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(11);
+                doc.text(item.label, left + 10, textY);
+
+                doc.setFont("Helvetica", "normal");
+                doc.setFontSize(9);
+                const descLines = doc.splitTextToSize(item.description, right - left - 20);
+                textY += 10;
+                doc.text(descLines, left + 10, textY);
+
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(0, 63, 137);
+                doc.text(item.pace, right - 10, y + 16, { align: "right" });
+                doc.setTextColor(0, 0, 0);
+
+                y += cardHeight + cardSpacing;
+            });
+        }).save();
     };
 
     return (
-        <div className="animate-fade-in relative pb-10"> {/* Reduced pb-20 to pb-10 */}
+        <div className="animate-fade-in relative pb-12">
              <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
-                <PDFExportTemplate plan={plan} userProfile={userProfile} />
+                <PDFExportTemplate plan={plan} userProfile={savedPlan.userProfile} />
             </div>
 
-            <div className="text-center mb-8 no-print">
+            <div className="text-center mb-8 no-print pt-6">
                 <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">Calendrier Réel</h1>
                 <p className="text-xl text-gray-300">Objectif : <span className="text-[#00AFED] font-bold">{formatDate(plan.raceDate)}</span></p>
                 <div className="flex flex-wrap justify-center gap-4 mt-6">
-                    <button onClick={onOptimizeRequest} disabled={!hasCompletedSessions || isOptimizing} className="px-5 py-2 text-sm bg-yellow-600/80 text-white rounded-full hover:bg-yellow-500 disabled:opacity-50">⚡ Optimiser</button>
                     <button onClick={handlePrint} className="px-5 py-2 text-sm bg-white/10 text-white rounded-full hover:bg-white/20">🖨️ PDF</button>
                     <button onClick={onNewPlanRequest} className="px-5 py-2 text-sm bg-[#00AFED] text-white rounded-full hover:bg-[#0095c7]">Nouveau Plan</button>
                 </div>
             </div>
-
-            {/* Suggestions Block */}
-            {optimizationSuggestions && (
-                 <div className="mb-8 bg-yellow-900/20 border border-yellow-500/30 rounded-2xl p-6 no-print">
-                    <h2 className="text-xl font-bold text-yellow-300 mb-4">💡 Suggestions</h2>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        {optimizationSuggestions.map((s, i) => (
-                            <div key={i} className="bg-black/20 p-4 rounded-lg">
-                                <h3 className="font-bold text-white">{s.title}</h3>
-                                <p className="text-sm text-yellow-100">{s.suggestion}</p>
-                            </div>
-                        ))}
-                    </div>
-                 </div>
-            )}
 
             <div className="space-y-6 no-print">
                 {plan.plan.map((week, weekIndex) => {
@@ -330,6 +423,50 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                     );
                 })}
             </div>
+
+            {/* Lexique Section Web */}
+            <section className="mt-12 bg-black/20 border border-white/10 rounded-3xl p-6 md:p-8 no-print">
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                    Lexique &amp; Allures Personnelles
+                </h2>
+
+                <p className="text-sm text-gray-300 mb-6">
+                    Voici les allures et termes clés utilisés dans ton plan. Garde ce bloc sous la main pour ne jamais être perdu pendant tes séances.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <LexiqueItem
+                        label="EF – Endurance Fondamentale"
+                        pace={plan.alluresReference.ef}
+                        description="Allure confortable, respiration aisée, tu peux parler en phrases complètes. Base de 70–80 % de ton volume."
+                    />
+                    <LexiqueItem
+                        label="Seuil"
+                        pace={plan.alluresReference.seuil}
+                        description="Allure soutenue mais contrôlée, tu es juste en dessous de la zone où ça “brûle”. Sert à améliorer ta capacité à tenir une allure rapide longtemps."
+                    />
+                    <LexiqueItem
+                        label="VMA – Vitesse Max Aérobie"
+                        pace={plan.alluresReference.vma}
+                        description="Allure très intense que tu peux tenir 4 à 7 minutes. Utilisée pour les intervalles courts (200–400 m, 30/30...)."
+                    />
+                    <LexiqueItem
+                        label="AS10"
+                        pace={plan.alluresReference.as10}
+                        description="Allure cible sur 10 km. Sert pour les blocs de travail spécifique 10 km."
+                    />
+                    <LexiqueItem
+                        label="AS21"
+                        pace={plan.alluresReference.as21}
+                        description="Allure cible Semi-Marathon. Utilisée pour les blocs d’endurance soutenue."
+                    />
+                    <LexiqueItem
+                        label="AS42"
+                        pace={plan.alluresReference.as42}
+                        description="Allure cible Marathon. Base des séances spécifiques longues pour les prépas marathon."
+                    />
+                </div>
+            </section>
 
             {feedbackTarget && <FeedbackModal session={feedbackTarget.session} onClose={() => setFeedbackTarget(null)} onSubmit={handleFeedbackSubmit} />}
             {suggestionTarget && <SessionSuggestionModal session={suggestionTarget} onClose={() => setSuggestionTarget(null)} />}

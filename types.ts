@@ -64,6 +64,13 @@ export interface UltraDetails {
     terrainType: "Peu technique" | "Mixte" | "Très technique";
 }
 
+export interface TrailShortDetails {
+    distance: string;
+    elevationGain: string;
+    terrainType: "Peu technique" | "Mixte" | "Très technique";
+    targetTime?: string;
+}
+
 export interface FormData {
     gender: Gender;
     age: number;
@@ -79,6 +86,7 @@ export interface FormData {
     currentPaceEF: string;
     objective: Objective;
     ultraDetails?: UltraDetails;
+    trailShortDetails?: TrailShortDetails;
     targetTime: string;
     targetDate: string; // YYYY-MM-DD
     availabilityDays: string[];

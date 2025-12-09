@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { User, SavedPlan, DetailedTrainingPlan, FormData, CompletionStatus, OptimizationSuggestion } from '../types';
+import type { User, SavedPlan, DetailedTrainingPlan, FormData, CompletionStatus } from '../types';
 import { getPlansForUser, savePlanForUser, updatePlanCompletion } from '../services/planService';
-import { getPlanOptimizationSuggestions } from '../services/geminiService';
 import GeneratorPage from './GeneratorPage';
 import TrainingPlanDisplay from './TrainingPlanDisplay';
 
@@ -14,12 +13,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
     const [plans, setPlans] = useState<SavedPlan[]>([]);
     const [activePlan, setActivePlan] = useState<SavedPlan | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    // State for optimization feature
-    const [isOptimizing, setIsOptimizing] = useState(false);
-    const [optimizationSuggestions, setOptimizationSuggestions] = useState<OptimizationSuggestion[] | null>(null);
-    const [optimizationError, setOptimizationError] = useState<string | null>(null);
-
 
     useEffect(() => {
         const loadPlans = () => {
@@ -37,8 +30,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         const newPlan = savePlanForUser(user.id, planData, formData);
         setPlans(prev => [newPlan, ...prev.map(p => ({...p, isActive: false}))]);
         setActivePlan(newPlan);
-        setOptimizationSuggestions(null); // Clear old suggestions
-        setOptimizationError(null);
         setView('dashboard');
     };
 
@@ -50,28 +41,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         if (activePlan?.id === planId) {
             setActivePlan(prev => prev ? {...prev, completionStatus: newStatus} : null);
         }
-        setOptimizationSuggestions(null); // Invalidate old suggestions on new data
-        setOptimizationError(null);
     };
     
-    const handleOptimizePlan = async () => {
-        if (!activePlan) return;
-        setIsOptimizing(true);
-        setOptimizationSuggestions(null);
-        setOptimizationError(null);
-        try {
-            const suggestions = await getPlanOptimizationSuggestions(activePlan);
-            setOptimizationSuggestions(suggestions);
-        } catch (err) {
-            setOptimizationError((err as Error).message);
-        } finally {
-            setIsOptimizing(false);
-        }
-    };
-
     const handleNewPlanRequest = () => {
-        setOptimizationSuggestions(null);
-        setOptimizationError(null);
         setView('generator');
     }
 
@@ -98,7 +70,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
     }
 
     return (
-        <main className="container mx-auto px-6 pt-24 pb-12 min-h-screen flex flex-col">
+        <main className="container mx-auto px-6 pt-24 pb-4 min-h-auto flex flex-col">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
                 Bonjour {user.name}, prêt à vous entraîner ?
             </h1>
@@ -112,10 +84,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                         savedPlan={activePlan}
                         onUpdateCompletion={handleUpdateCompletion}
                         onNewPlanRequest={handleNewPlanRequest}
-                        onOptimizeRequest={handleOptimizePlan}
-                        isOptimizing={isOptimizing}
-                        optimizationSuggestions={optimizationSuggestions}
-                        optimizationError={optimizationError}
                     />
                 ) : (
                     <div className="text-center bg-black/20 border border-white/10 rounded-2xl p-12 mt-10">
@@ -128,14 +96,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                 )}
 
                 {plans.length > 1 && (
-                    <div className="mt-16">
+                    <div className="mt-16 mb-8">
                         <h2 className="text-2xl font-bold text-white mb-4">Historique des plans</h2>
                         <div className="space-y-3">
                             {plans.map(plan => (
                                 <div key={plan.id} onClick={() => {
                                     setActivePlan(plan)
-                                    setOptimizationSuggestions(null);
-                                    setOptimizationError(null);
                                     }} className={`p-4 border rounded-lg cursor-pointer transition-colors ${activePlan?.id === plan.id ? 'bg-[#00AFED]/20 border-[#00AFED]' : 'bg-white/5 border-white/10 hover:border-white/30'}`}>
                                     <p className="font-semibold">{plan.userProfile.objective} - {plan.userProfile.duration} semaines</p>
                                     <p className="text-sm text-gray-400">Créé le {new Date(plan.createdAt).toLocaleDateString('fr-FR')}</p>

@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion, DetailedSession, ChatMessage } from '../types';
+import { Objective } from '../types';
 
 export const getApiKey = (): string | undefined => {
     try {
@@ -49,72 +50,125 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
       maintenanceWeeks = totalWeeksAvailable - prepDuration;
   }
   
-  // 2. CONSTRUCTION DU PROMPT EXPERT
   const ultraContext = formData.ultraDetails 
-    ? `ULTRA: ${formData.ultraDetails.type}, ${formData.ultraDetails.distance}, D+${formData.ultraDetails.elevationGain}.`
+    ? `ULTRA DETAILS: Type=${formData.ultraDetails.type}, Dist=${formData.ultraDetails.distance}, D+=${formData.ultraDetails.elevationGain}, Terrain=${formData.ultraDetails.terrainType}.`
     : `Objectif: ${formData.objective}`;
 
+  const trailContext = formData.trailShortDetails
+    ? `TRAIL COURT DETAILS: Dist=${formData.trailShortDetails.distance}, D+=${formData.trailShortDetails.elevationGain}, Terrain=${formData.trailShortDetails.terrainType}, TempsCible=${formData.trailShortDetails.targetTime || 'Non précisé'}.`
+    : '';
+
+  // 2. SÉLECTION DU CONTEXTE SCIENTIFIQUE SELON L'OBJECTIF (LES BIBLES)
+  let scientificContext = "";
+
+  if (formData.objective === Objective.FIVE_K) {
+      scientificContext = `
+      --- BIBLE 5000M (SCIENCE & PERFORMANCE) ---
+      1. PHYSIOLOGIE : Effort supra-critique (> Seuil Anaérobie LT2). Facteurs clés : VMA (vVO2max), Économie de course (RE), Tolérance lactique.
+      2. ARCHITECTURE : Base (EF + Vitesse pure) -> Construction (VMA + Seuil) -> Spécifique (Allure 5k). Affûtage 7-10 jours (baisse vol 40-60%).
+      3. SÉANCES CLÉS : VMA Courte (30/30, 400m), Seuil (Tempo 20'), Neuromusculaire (Force/Plyo).
+      4. PROFILS :
+         - Débutant : 2-3 séances/sem, Focus Durée.
+         - Avancé : 5-7 séances/sem, Polarisation.
+      `;
+  } else if (formData.objective === Objective.TEN_K) {
+      scientificContext = `
+      --- BIBLE 10 KM (MATRICE PERFORMANCE) ---
+      1. PHYSIOLOGIE : Endurance-Vitesse (90-95% VMA). Facteurs : Fractional Utilization (Seuil), VO2max, Économie.
+      2. ARCHITECTURE : Base (EF dominante) -> Spécifique (Progression VTS de 4 à 8 km/séance). Affûtage 1 semaine (-50% vol).
+      3. SÉANCES CLÉS : AS10 (6x1000m, Pyramide), Seuil (Tempo 20'), SL avec blocs.
+      4. PROFILS :
+         - Débutant (Finir) : 2-3 séances, Focus durée.
+         - Élite (<35') : 6-8 séances, AS10 longue (3x2000m).
+      `;
+  } else if (formData.objective === Objective.HALF_MARATHON) {
+      scientificContext = `
+      --- BIBLE SEMI-MARATHON (MATRICE PERFORMANCE) ---
+      1. PHYSIOLOGIE : Effort Aérobie soutenu (~85-90% VO2max, Seuil Anaérobie LT2).
+      2. ARCHITECTURE : Base (Volume, EF) -> Spécifique (Seuil/Tempo prédominant, AS21, SL structurée). Affûtage 10-14 jours.
+      3. SÉANCES CLÉS : Seuil/Tempo (20-40' continu ou 3x10'), AS21 (3x3000m), SL (1h30-2h00 avec blocs finaux).
+      4. PROFILS :
+         - Débutant : 2-3 séances, SL progressive.
+         - Élite : 7+ séances, Spécial blocks Canova.
+      `;
+  } else if (formData.objective === Objective.MARATHON) {
+      scientificContext = `
+      --- BIBLE MARATHON EXPERT ---
+      1. PHYSIOLOGIE : Durabilité, Glycogène, Résistance musculaire. Invariants : 80-90% EF, SL obligatoire.
+      2. ARCHITECTURE : Base (Volume + Force) -> Spécifique (Intégration AS42 progressive) -> Affûtage (2-3 semaines, baisse exp.).
+      3. SÉANCES CLÉS : SL Spécifique (jusqu'à 2h30-3h00 avec blocs AS42), Seuil long, AS42 (3x5km).
+      4. PROFILS :
+         - Débutant : Pic 40-60km, SL max 2h30 EF.
+         - Élite : Pic >110km, SL complexe.
+      `;
+  } else if (formData.objective === Objective.TRAIL_SHORT) {
+      scientificContext = `
+      --- BIBLE TRAIL COURT (0-44 KM-EFFORT) ---
+      1. PHYSIOLOGIE : Kilomètre-Effort. Ratio D+/Heure, Puissance Aérobie Ascensionnelle, Résistance Excentrique (D-).
+      2. ARCHITECTURE : Générale (Base aérobie + VMA plat) -> Spécifique (Intégration D+, Côtes, D-). Affûtage Mécanique (2 sem, réduction D-).
+      3. SÉANCES CLÉS : VMA Côte, Seuil Côte, Rando-Course (pentes >15%), Excentrique.
+      4. PROFILS :
+         - Débutant : 3-4h/sem, D+ 300-600m.
+         - Élite : 6-10h/sem, D+ >1300m, VMA côte.
+      `;
+  } else if (formData.objective === Objective.ULTRA_DISTANCE) {
+      scientificContext = `
+      --- BIBLE ULTRA-TRAIL (42KM - 160KM+) ---
+      1. PHYSIOLOGIE : Intensité 45-60% VO2max. FatMax, Glycogen sparing, Fatigue Centrale (sommeil), Fatigue Périphérique (casse).
+      2. ARCHITECTURE : Polarisation 80/20. Weekend Choc (Accumulation fatigue 2 jours). Affûtage long (2-3 sem).
+      3. SÉANCES CLÉS : Rando-Course, Weekend Choc, Renforcement Excentrique.
+      4. PROFILS :
+         - Débutant (50-80k) : 6-10h/sem.
+         - Élite : 15-25h/sem, Weekend Choc lourd.
+      `;
+  } else {
+      scientificContext = `
+      --- CADRE GÉNÉRAL ENDURANCE ---
+      - Polarisation 80/20.
+      - Progressivité +10%/semaine.
+      - Spécificité croissante.
+      `;
+  }
+
+  // 3. CONSTRUCTION DU PROMPT
   const prompt = `
-    ROLE: Coach Expert Endurance & Physiologie (Haut Niveau), SPÉCIALISTE MARATHON.
-    MISSION: Générer un plan d'entraînement MARATHON structuré, lisible et physiologiquement optimal, basé sur le cadre méthodologique Marathon du SARC.
+    ROLE: Coach Expert Endurance & Physiologie (Haut Niveau), SPÉCIALISTE ${formData.objective}.
+    MISSION: Générer un plan d'entraînement 100% personnalisé, respectant STRICTEMENT la BIBLE SCIENTIFIQUE ci-dessous.
+
+    ${scientificContext}
+
+    CONTEXTE UTILISATEUR :
+    - Profil : ${formData.gender}, ${formData.age} ans, Niveau ${formData.level}.
+    - Volume actuel : ${formData.currentVolume}. Historique : ${formData.runningHistory}.
+    - Objectif : ${
+      formData.objective === Objective.ULTRA_DISTANCE
+        ? ultraContext
+        : formData.objective === Objective.TRAIL_SHORT
+          ? trailContext
+          : `Objectif ${formData.objective} en ${formData.targetTime}`
+    }.
+    - Dispo Jours : ${formData.availabilityDays.join(', ')}. (${formData.availabilityDays.length} jours/semaine).
+    - Stress Vie : ${formData.lifeStress}.
+    - Terrain : ${formData.terrain}.
 
     CONTEXTE CALENDRIER :
     - Date départ plan : ${planStartDate.toISOString().split('T')[0]}
     - Date course : ${formData.targetDate}
-    - Semaines totales : ${totalWeeksAvailable}
-    - Semaines maintien : ${maintenanceWeeks} (Volume ≈ ${formData.currentVolume}).
-    - Semaines prépa : ${prepDuration} (Progression +10%/semaine max).
+    - Total semaines : ${totalWeeksAvailable}
+    - Maintien : Semaines 1 à ${maintenanceWeeks}.
+    - Prépa : ${prepDuration} semaines.
 
-    --- CADRE MÉTHODOLOGIQUE MARATHON ---
-    1. PROFILS COUREURS & VOLUME CIBLE :
-       - Débutant (Objectif finir, >4h15) : 3-4 séances/sem, Pic 40-60 km/sem. SL max 2h30.
-       - Intermédiaire (3h30-4h15) : 4-5 séances/sem, Pic 60-90 km/sem. SL max 30-32 km.
-       - Avancé (2h45-3h30) : 5-7 séances/sem, Pic 90-110 km/sem. SL spécifique avec blocs AS42.
-       - Élite (<2h40) : 7+ séances/sem, Pic >110 km/sem. Méthodes avancées (Canova).
+    RÈGLES IMPÉRATIVES DE GÉNÉRATION :
+    1. NOMBRE DE SÉANCES : Tu DOIS générer EXACTEMENT ${formData.availabilityDays.length} séances par semaine pour chaque semaine du plan. (Sauf affûtage extrême si nécessaire, mais rester proche). Si l'utilisateur a 5 jours de dispo, il doit y avoir 5 séances.
+    2. SÉANCES FIXES (SARC) :
+       - Mercredi : "Fractionné Surprise" (15' EF + 20' Surprise + 15' EF).
+       - Dimanche : "Sortie Longue / Run Club" (Base 10km, ajustée selon objectif/bible).
+    3. FORMAT SÉANCES :
+       - 100% EF : Contenu = 1 ligne (ex: "1h00 EF"). Champs détails vides.
+       - Qualité : Contenu structuré (Warmup, MainBlock, Cooldown). Champs détails remplis.
+    4. PERSONNALISATION : Adapte le volume et l'intensité au profil (Débutant vs Élite) selon la BIBLE.
 
-    2. INVARIANTS PHYSIOLOGIQUES :
-       - 80-90% du volume en Endurance Fondamentale (EF).
-       - Sortie Longue (SL) : 1x/semaine OBLIGATOIRE (sauf affûtage). Max 30-35% du volume hebdo.
-       - Phase Spécifique : Intégration progressive de l'allure AS42.
-       - Affûtage (Taper) : 2-3 dernières semaines, baisse volume (20->40->60%), maintien intensité.
-
-    RÈGLES DE FORMAT DES SÉANCES (STRICTES - SARC) :
-    
-    FORMAT 1 : SÉANCE 100% EF (FOOTING SIMPLE)
-    - Si la séance est "Endurance Fondamentale" uniquement.
-    - NE PAS CRÉER DE BLOCS échauffement/corps/retour.
-    - Contenu : "10 km en endurance fondamentale (EF), allure confortable." (1 seule ligne).
-    - Champs 'warmup', 'mainBlock', 'cooldown' DOIVENT être vides.
-
-    FORMAT 2 : SÉANCE QUALITATIVE (VMA, SEUIL, ASxx, CÔTES)
-    - Structure OBLIGATOIRE :
-      - Warmup: (ex: "20' EF + 3 x 80m accélérations")
-      - Main Block: (ex: "3 x 10' AS42, R=2' trot")
-      - Cooldown: (ex: "10' EF")
-      - Contenu : Concaténation lisible ("20' EF + 3 x 10' AS42 (R=2') + 10' EF")
-
-    FORMAT 3 : SORTIE LONGUE STRUCTURÉE (DIMANCHE)
-    - Base : "10 km EF @ 6:00/km avec le Run Club (Bois des Hâtes)".
-    - Si SL > 10km : Ajouter EF avant/après (répartition 50/50).
-    - Warmup: (ex: "5 km EF en solo")
-    - Main Block: "10 km EF @ 6:00/km avec le Run Club"
-    - Cooldown: (ex: "5 km EF en solo")
-    - Contenu: "5 km EF + 10 km Run Club + 5 km EF"
-
-    RÈGLE SPÉCIALE MERCREDI (FIXE) :
-    - Type : "Fractionné Surprise"
-    - Warmup: "15' EF"
-    - Main Block: "20' fractionné surprise (séance décidée par les coachs)"
-    - Cooldown: "15' EF"
-    - Contenu: "15' EF + 20' Fractionné surprise + 15' EF"
-
-    PROFIL ATHLÈTE :
-    - ${formData.gender}, ${formData.age} ans, Niveau ${formData.level}.
-    - Volume actuel : ${formData.currentVolume}.
-    - Objectif : ${ultraContext} en ${formData.targetTime}.
-    - Dispo : ${formData.availabilityDays.join(', ')}.
-
-    OUTPUT : JSON uniquement respectant le schéma.
+    OUTPUT : JSON uniquement.
   `;
 
   const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
@@ -145,10 +199,10 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
                                       jour: { type: Type.STRING },
                                       date: { type: Type.STRING },
                                       type: { type: Type.STRING },
-                                      contenu: { type: Type.STRING }, // Texte complet concaténé
-                                      warmup: { type: Type.STRING }, // Champ spécifique
-                                      mainBlock: { type: Type.STRING }, // Champ spécifique
-                                      cooldown: { type: Type.STRING }, // Champ spécifique
+                                      contenu: { type: Type.STRING },
+                                      warmup: { type: Type.STRING },
+                                      mainBlock: { type: Type.STRING },
+                                      cooldown: { type: Type.STRING },
                                       objectif: { type: Type.STRING },
                                       volume: { type: Type.NUMBER },
                                       allure: { type: Type.STRING },
