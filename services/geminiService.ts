@@ -9,7 +9,6 @@ export const getApiKey = (): string | undefined => {
         // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) return import.meta.env.API_KEY;
         
-        // Check process.env carefully to avoid browser crashes
         if (typeof process !== 'undefined' && typeof process.env !== 'undefined' && process.env.API_KEY) {
             return process.env.API_KEY;
         }
@@ -36,10 +35,21 @@ const getMonday = (d: Date) => {
   return new Date(dCopy.setDate(diff));
 };
 
+// --- Scientific Contexts (Condensed) ---
+const SCIENTIFIC_SUMMARIES: Record<string, string> = {
+    [Objective.FIVE_K]: "Focus: VMA, Économie. Cycle: Base -> Spécifique (VMA courte/longue).",
+    [Objective.TEN_K]: "Focus: Endurance-Vitesse (90-95% VMA). Cycle: Base -> Seuil -> Spécifique AS10.",
+    [Objective.HALF_MARATHON]: "Focus: Seuil LT2, Endurance. Cycle: Volume -> Tempo/Seuil -> AS21.",
+    [Objective.MARATHON]: "Focus: Durabilité, Glycogène. Cycle: Endurance -> AS42 (blocs longs) -> Affûtage 2 sem.",
+    [Objective.TRAIL_SHORT]: "Focus: Force excentrique, D+/Heure. Cycle: VMA côte -> Spécifique terrain.",
+    [Objective.ULTRA_DISTANCE]: "Focus: FatMax, Endurance mentale. Cycle: Volume -> Weekend Choc -> Affûtage long.",
+    [Objective.MAINTENANCE]: "Focus: Plaisir, Santé. Volume modéré, mix EF et variations ludiques."
+};
+
 export async function generateDetailedTrainingPlan(formData: FormData, useThinkingMode: boolean): Promise<DetailedTrainingPlan> {
   const ai = getAiClient();
   
-  // 1. CALCUL DES DATES ET DES SEMAINES (Calendrier Réel)
+  // 1. CALCUL DES DATES
   const targetDateObj = new Date(formData.targetDate);
   const today = new Date();
   const planStartDate = getMonday(today);
@@ -47,114 +57,62 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
   const totalDurationMs = targetDateObj.getTime() - planStartDate.getTime();
   const totalWeeksAvailable = Math.ceil(totalDurationMs / (7 * MS_PER_DAY));
   
-  // Si la date est passée ou trop proche (< 1 semaine), on gère une exception ou on commence maintenant
   if (totalWeeksAvailable < 1) {
-      throw new Error("La date d'objectif est trop proche. Veuillez choisir une date future.");
+      throw new Error("La date d'objectif est trop proche.");
   }
 
   const prepDuration = formData.duration;
   let maintenanceWeeks = 0;
-  
   if (totalWeeksAvailable > prepDuration) {
       maintenanceWeeks = totalWeeksAvailable - prepDuration;
   }
   
-  const ultraContext = formData.ultraDetails 
-    ? `ULTRA DETAILS: Type=${formData.ultraDetails.type}, Dist=${formData.ultraDetails.distance}, D+=${formData.ultraDetails.elevationGain}, Terrain=${formData.ultraDetails.terrainType}.`
-    : `Objectif: ${formData.objective}`;
+  // 2. CONTEXTE CONDENSÉ
+  const summary = SCIENTIFIC_SUMMARIES[formData.objective] || "Entraînement équilibré.";
+  
+  const specificContext = formData.objective === Objective.ULTRA_DISTANCE && formData.ultraDetails
+    ? `Ultra ${formData.ultraDetails.distance}, D+${formData.ultraDetails.elevationGain}`
+    : formData.objective === Objective.TRAIL_SHORT && formData.trailShortDetails
+      ? `Trail ${formData.trailShortDetails.distance}, D+${formData.trailShortDetails.elevationGain}`
+      : `Objectif ${formData.targetTime}`;
 
-  const trailContext = formData.trailShortDetails
-    ? `TRAIL COURT DETAILS: Dist=${formData.trailShortDetails.distance}, D+=${formData.trailShortDetails.elevationGain}, Terrain=${formData.trailShortDetails.terrainType}, TempsCible=${formData.trailShortDetails.targetTime || 'Non précisé'}.`
-    : '';
-
-  // 2. SÉLECTION DU CONTEXTE SCIENTIFIQUE SELON L'OBJECTIF
-  let scientificContext = "";
-
-  if (formData.objective === Objective.FIVE_K) {
-      scientificContext = `
-      --- BIBLE 5000M ---
-      Focus: VMA (vVO2max), Économie de course.
-      Architecture: Base -> Construction -> Spécifique.
-      `;
-  } else if (formData.objective === Objective.TEN_K) {
-      scientificContext = `
-      --- BIBLE 10 KM ---
-      Focus: Endurance-Vitesse (90-95% VMA).
-      Architecture: Base -> Spécifique (VTS 4-8 km).
-      `;
-  } else if (formData.objective === Objective.HALF_MARATHON) {
-      scientificContext = `
-      --- BIBLE SEMI-MARATHON ---
-      Focus: Seuil Anaérobie LT2.
-      Architecture: Volume -> Seuil/Tempo -> Spécifique AS21.
-      `;
-  } else if (formData.objective === Objective.MARATHON) {
-      scientificContext = `
-      --- BIBLE MARATHON ---
-      Focus: Durabilité, Glycogène.
-      Architecture: Base -> Spécifique (AS42) -> Affûtage 2-3 sem.
-      `;
-  } else if (formData.objective === Objective.TRAIL_SHORT) {
-      scientificContext = `
-      --- BIBLE TRAIL COURT ---
-      Focus: Ratio D+/Heure, Force Excentrique.
-      Architecture: Base -> Spécifique D+ -> Affûtage Mécanique.
-      `;
-  } else if (formData.objective === Objective.ULTRA_DISTANCE) {
-      scientificContext = `
-      --- BIBLE ULTRA-TRAIL ---
-      Focus: FatMax, Gestion Fatigue (Weekend Choc).
-      Architecture: Polarisation -> Weekend Choc -> Affûtage long.
-      `;
-  }
-
-  // 3. CONSTRUCTION DU PROMPT AVEC CONTRAINTES STRICTES
+  // 3. PROMPT DIRECTIF
   const prompt = `
-    ROLE: Coach Expert SARC (Saint-Avertin Run Club).
-    MISSION: Générer un plan d'entraînement structuré sur ${totalWeeksAvailable} semaines, du ${planStartDate.toISOString().split('T')[0]} au ${formData.targetDate}.
+    ROLE: Coach Expert SARC. Génère un plan de ${totalWeeksAvailable} semaines (${planStartDate.toISOString().split('T')[0]} au ${formData.targetDate}).
+    PROFIL: ${formData.level}, ${formData.currentVolume}. OBJ: ${formData.objective} (${specificContext}).
+    DISPO: ${formData.availabilityDays.join(', ')}.
 
-    CONTEXTE UTILISATEUR :
-    - Profil : ${formData.gender}, ${formData.age} ans, Niveau ${formData.level}.
-    - Objectif : ${
-      formData.objective === Objective.ULTRA_DISTANCE
-        ? ultraContext
-        : formData.objective === Objective.TRAIL_SHORT
-          ? trailContext
-          : `Objectif ${formData.objective} en ${formData.targetTime}`
-    }.
-    - Dispo Jours : ${formData.availabilityDays.join(', ')}.
-    - Note : Le volume de la prépa doit être calibré pour réussir l'OBJECTIF, indépendamment du volume historique (augmentation progressive sécurisée).
+    STRUCTURE:
+    - Sem 1-${maintenanceWeeks}: Maintien (si applicable).
+    - Sem ${maintenanceWeeks + 1}-${totalWeeksAvailable}: Prépa Spécifique.
 
-    CALENDRIER :
-    - Semaines 1 à ${maintenanceWeeks} : PHASE DE MAINTIEN / SOCLE (Si ${maintenanceWeeks} > 0).
-    - Semaines ${maintenanceWeeks + 1} à ${totalWeeksAvailable} : PRÉPARATION SPÉCIFIQUE (${prepDuration} semaines).
-    - Date de course : ${formData.targetDate}.
-
-    RÈGLES IMPÉRATIVES DE GÉNÉRATION (CONTRAINTES SARC) :
-    1. JOURS : Générer EXACTEMENT ${formData.availabilityDays.length} séances/semaine correspondant aux jours de dispo (${formData.availabilityDays.join(', ')}).
+    RÈGLES STRICTES SARC (A RESPECTER IMPERATIVEMENT) :
+    1. JOURS: Exactement ${formData.availabilityDays.length} séances/semaine correspondant aux jours : ${formData.availabilityDays.join(', ')}.
     
-    2. RÈGLE DU MERCREDI (Si Mercredi est dans les dispos) :
-       - OBLIGATOIRE : Séance "Fractionné Surprise".
-       - STRUCTURE : "15' EF - 20' Fractionné Surprise (ex: 30/30, Pyramide, Côtes...) - 15' EF".
+    2. MERCREDI (si dispo): C'est "Fractionné Surprise".
+       - TYPE: "Fractionné Surprise".
+       - CONTENU BLOC PRINCIPAL: "Surprise – contenu communiqué quelques minutes avant sur le groupe WhatsApp du club." (NE JAMAIS INVENTER de 30/30 ou autre détail).
+       - STRUCTURE: 20' EF + Bloc Surprise + 10' EF.
        
-    3. RÈGLE DU DIMANCHE (Si Dimanche est dans les dispos) :
-       - OBLIGATOIRE : "Run Club - Bois des Hâtes".
-       - BASE : 10 km à 6:00/km (allure sociale).
-       - ADAPTATION : Si la Sortie Longue (SL) exigée par le plan > 10km, ajouter le volume en "EF avant" ou "EF après" la sortie club.
+    3. DIMANCHE (si dispo): "Run Club - Bois des Hâtes".
+       - BASE: 10km @ 6:00/km. Si SL > 10km, ajouter le reste en EF avant/après.
     
-    4. FORMAT JSON STRICT :
-       - Les dates doivent être réelles (YYYY-MM-DD).
-       - Le champ 'contenu' des séances qualité doit être détaillé.
+    4. INTENSITÉ & BLOCS:
+       - Échauffement (warmup) et Retour au calme (cooldown) DOIVENT TOUJOURS être "Endurance Fondamentale" (EF). Pas de marche, pas d'étirements dans ces blocs.
+       - Le volume doit être progressif et adapté à l'objectif.
 
-    ${scientificContext}
+    CONTEXTE SCIENCE: ${summary}
 
-    OUTPUT : JSON uniquement selon le schéma fourni.
+    OUTPUT: JSON Strict selon schema. Dates format YYYY-MM-DD.
   `;
 
+  // Utilisation de Flash par défaut pour la vitesse, sauf si Thinking demandé explicitement
+  // Le prompt est suffisamment guidé pour que Flash performe bien en <15s
   const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
   
   const config: any = {
       responseMimeType: "application/json",
+      temperature: 0.7, // Équilibre créativité/structure
       responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -189,7 +147,7 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
                                       frequenceCardiaque: { type: Type.STRING },
                                       rpe: { type: Type.STRING },
                                   },
-                                  required: ["jour", "date", "type", "contenu", "objectif", "volume"],
+                                  required: ["jour", "date", "type", "contenu", "objectif", "volume", "warmup", "mainBlock", "cooldown"],
                               },
                           },
                           volumeTotal: { type: Type.NUMBER },
@@ -222,10 +180,10 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
   };
 
   if (useThinkingMode) {
-      config.thinkingConfig = { thinkingBudget: 16384 };
+      config.thinkingConfig = { thinkingBudget: 4096 }; // Budget réduit pour rester rapide si activé
   }
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await ai.models.generateContent({
         model: model,
@@ -238,13 +196,11 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
       return JSON.parse(jsonText) as DetailedTrainingPlan;
     } catch (error) {
         console.error("Erreur génération:", error);
-        if (attempt === MAX_RETRIES) throw error;
+        if (attempt === 2) throw error;
     }
   }
   throw new Error("Échec génération");
 }
-
-const MAX_RETRIES = 2;
 
 const formatFeedbackForAI = (plan: SavedPlan): string => {
   const feedbackLines: string[] = [];
@@ -264,9 +220,7 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
   const ai = getAiClient();
   const formattedFeedback = formatFeedbackForAI(plan);
   const prompt = `
-    TASK: Optimize plan.
-    User: ${plan.userProfile.level}, Obj: ${plan.userProfile.objective}.
-    Feedback: ${formattedFeedback}
+    TASK: Optimize plan. User: ${plan.userProfile.level}. Feedback: ${formattedFeedback}.
     OUTPUT: JSON Array of suggestions.
   `;
   try {

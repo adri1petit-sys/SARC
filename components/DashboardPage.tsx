@@ -35,7 +35,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
 
     const handleUpdateCompletion = (planId: string, newStatus: CompletionStatus) => {
         updatePlanCompletion(planId, newStatus);
-        // Optimistically update local state for immediate feedback
         const updatedPlans = plans.map(p => p.id === planId ? {...p, completionStatus: newStatus} : p);
         setPlans(updatedPlans);
         if (activePlan?.id === planId) {
@@ -49,7 +48,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
 
     if (isLoading) {
         return (
-             <div className="text-center py-20 flex flex-col items-center justify-center min-h-screen">
+             <div className="text-center py-20 flex flex-col items-center justify-center flex-grow">
                  <div className="relative w-24 h-24">
                     <div className="absolute inset-0 border-4 border-[#00AFED]/30 rounded-full"></div>
                     <div className="absolute inset-0 border-4 border-t-[#00AFED] rounded-full animate-spin"></div>
@@ -60,7 +59,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
 
     if (view === 'generator') {
         return (
-             <main className="container mx-auto px-6 pt-24 pb-12 min-h-screen flex flex-col">
+             <main className="container mx-auto px-6 py-12 flex-grow flex flex-col">
                 <GeneratorPage 
                     onPlanGenerated={handlePlanGenerated}
                     onCancel={() => setView('dashboard')}
@@ -70,7 +69,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
     }
 
     return (
-        <main className="container mx-auto px-6 pt-24 pb-4 min-h-auto flex flex-col">
+        <main className="container mx-auto px-6 py-8 flex-grow flex flex-col">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
                 Bonjour {user.name}, prêt à vous entraîner ?
             </h1>

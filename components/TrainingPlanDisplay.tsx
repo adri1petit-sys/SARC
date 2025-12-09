@@ -5,20 +5,13 @@ import FeedbackModal from './FeedbackModal';
 
 // --- PDF HELPERS ---
 const MARGIN_TOP = 40;
-const MARGIN_BOTTOM = 40;
-
-function getPageHeight(doc: any): number {
-  return doc.internal?.pageSize?.getHeight?.() ?? doc.internal.pageSize.height;
-}
-
-function newPage(doc: any): number {
-  doc.addPage();
-  return MARGIN_TOP;
-}
+const MARGIN_BOTTOM = 60; // Increased to ensure ~3-4 lines of white space
+const LINE_HEIGHT = 14;
+const PAGE_HEIGHT_A4 = 841.89; // Points (pt) for A4
+const PAGE_WIDTH_A4 = 595.28;
 
 function ensureSpace(doc: any, currentY: number, neededHeight: number): number {
-  const pageHeight = getPageHeight(doc);
-  if (currentY + neededHeight > pageHeight - MARGIN_BOTTOM) {
+  if (currentY + neededHeight > PAGE_HEIGHT_A4 - MARGIN_BOTTOM) {
     doc.addPage();
     return MARGIN_TOP;
   }
@@ -214,7 +207,6 @@ const CalendarView: React.FC<{ plan: DetailedTrainingPlan, completionStatus: Com
     const [centeredWeek, setCenteredWeek] = useState<number>(1);
 
     useEffect(() => {
-        // Find current week index
         const currentWeekObj = plan.plan.find(w => isDateInWeek(today, w.startDate, w.endDate));
         if (currentWeekObj && scrollRef.current) {
              const element = document.getElementById(`week-calendar-${currentWeekObj.semaine}`);
@@ -262,29 +254,6 @@ const CalendarView: React.FC<{ plan: DetailedTrainingPlan, completionStatus: Com
         </div>
     )
 }
-
-// Template for HTML2PDF - Weeks ONLY (Lexique is handled programmatically)
-const PDFExportTemplate: React.FC<{ plan: DetailedTrainingPlan, userProfile: FormData }> = ({ plan, userProfile }) => (
-    <div id="pdf-content" className="p-8 bg-white text-gray-800" style={{ width: '210mm', minHeight: '297mm' }}>
-        <h1 className="text-3xl font-bold text-[#183C89] mb-4">Plan SARC - {userProfile.objective}</h1>
-        <p className="mb-8">Objectif: {formatDate(plan.raceDate)}</p>
-        <div className="space-y-6 mb-8">
-            {plan.plan.map((week) => (
-                <div key={week.semaine} className="break-inside-avoid">
-                    <h3 className="text-xl font-bold mb-2 text-[#183C89] border-b border-[#00AFED]">Semaine {week.semaine} - {week.phase}</h3>
-                    <div className="grid grid-cols-1 gap-1">
-                        {week.jours.map((session, index) => (
-                            <div key={index} className="p-2 border-b text-sm">
-                                <span className="font-bold">{session.jour} {formatDate(session.date)}</span> - {session.type} ({session.volume} km)
-                                <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{session.contenu}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
-        </div>
-    </div>
-);
 
 interface TrainingPlanDisplayProps {
     savedPlan: SavedPlan;
@@ -358,92 +327,168 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     };
 
     const handlePrint = () => {
-        const element = document.getElementById('pdf-content');
-        if (!element || !(window as any).html2pdf) return;
-
-        const allures = plan.alluresReference;
-
+        if (!(window as any).html2pdf) return;
+        
+        // Use html2pdf to access jsPDF, but do manual drawing for perfect pages
+        const worker = (window as any).html2pdf();
+        // Create a dummy PDF just to get the instance, or manually instantiate if imported.
+        // Since we are using CDN, we'll leverage the worker to get a jsPDF object.
         const opt = {
             margin: 0,
-            filename: `plan-sarc.pdf`,
+            filename: `Plan_SARC_${savedPlan.userProfile.objective}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
+            html2canvas: { scale: 2 },
             jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
         };
 
-        (window as any).html2pdf().from(element).set(opt).toPdf().get('pdf').then((doc: any) => {
-            let y = newPage(doc);
+        // We use a trick: render an empty div, then hook into the callback to draw manually
+        worker.set(opt).from(document.createElement('div')).toPdf().get('pdf').then((doc: any) => {
+            // --- MANUAL PDF GENERATION START ---
+            let y = MARGIN_TOP;
+            const leftX = 40;
+            const rightX = PAGE_WIDTH_A4 - 40;
+            const contentWidth = rightX - leftX;
+
+            // Title Page
+            doc.setFont("Helvetica", "bold");
+            doc.setFontSize(24);
+            doc.setTextColor(24, 60, 137); // #183C89
+            doc.text("Plan d'Entraînement SARC", leftX, y);
+            y += 30;
+            
+            doc.setFontSize(12);
+            doc.setTextColor(0, 175, 237); // #00AFED
+            doc.text(`Objectif: ${savedPlan.userProfile.objective} (${savedPlan.userProfile.targetTime})`, leftX, y);
+            y += 20;
+            doc.setTextColor(50, 50, 50);
+            doc.setFont("Helvetica", "normal");
+            doc.text(`Course le: ${formatDate(plan.raceDate)}`, leftX, y);
+            y += 40;
+
+            // Loop through weeks
+            plan.plan.forEach((week) => {
+                const weekHeaderHeight = 30;
+                // Check space for header + at least one session (approx 60pt)
+                y = ensureSpace(doc, y, weekHeaderHeight + 60);
+
+                // Week Header
+                doc.setFillColor(245, 247, 250);
+                doc.setDrawColor(200, 200, 200);
+                doc.rect(leftX, y, contentWidth, weekHeaderHeight, "F");
+                
+                doc.setFont("Helvetica", "bold");
+                doc.setFontSize(14);
+                doc.setTextColor(24, 60, 137);
+                doc.text(`Semaine ${week.semaine} - ${week.phase}`, leftX + 10, y + 20);
+                
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`${formatDate(week.startDate)} au ${formatDate(week.endDate)}`, rightX - 10, y + 20, { align: "right" });
+                y += weekHeaderHeight + 10;
+
+                // Loop through sessions
+                week.jours.forEach((session) => {
+                    const typeColor = session.type.toLowerCase() === 'repos' ? [150, 150, 150] : [0, 0, 0];
+                    const isRepos = session.type.toLowerCase() === 'repos';
+                    
+                    doc.setFont("Helvetica", "bold");
+                    doc.setFontSize(10);
+                    const titleLines = doc.splitTextToSize(`${session.jour} ${formatDate(session.date)} - ${session.type}`, contentWidth);
+                    const titleHeight = titleLines.length * LINE_HEIGHT;
+                    
+                    doc.setFont("Helvetica", "normal");
+                    doc.setFontSize(9);
+                    // Combine contents for display
+                    let contentText = "";
+                    if (isRepos) {
+                        contentText = "Repos complet.";
+                    } else {
+                         if (session.warmup) contentText += `Warm-up: ${session.warmup}\n`;
+                         if (session.mainBlock) contentText += `Bloc: ${session.mainBlock}\n`;
+                         if (session.cooldown) contentText += `Cool-down: ${session.cooldown}\n`;
+                         if (!session.warmup) contentText += session.contenu;
+                    }
+
+                    const contentLines = doc.splitTextToSize(contentText, contentWidth - 10);
+                    const contentHeight = contentLines.length * LINE_HEIGHT;
+                    const totalSessionHeight = titleHeight + contentHeight + 15; // + padding
+
+                    y = ensureSpace(doc, y, totalSessionHeight);
+
+                    // Draw Session
+                    doc.setTextColor(typeColor[0], typeColor[1], typeColor[2]);
+                    doc.setFont("Helvetica", "bold");
+                    doc.text(titleLines, leftX, y);
+                    y += titleHeight;
+
+                    if (!isRepos) {
+                         doc.setTextColor(80, 80, 80);
+                         doc.setFont("Helvetica", "normal");
+                         doc.text(contentLines, leftX + 10, y);
+                    }
+                    
+                    y += contentHeight + 15;
+                    
+                    // Separator line
+                    doc.setDrawColor(230, 230, 230);
+                    doc.line(leftX, y - 8, rightX, y - 8);
+                });
+                y += 20; // Space between weeks
+            });
+
+            // Lexique (New Page if needed, but usually starts on new page for clean look)
+            doc.addPage();
+            y = MARGIN_TOP;
 
             doc.setFont("Helvetica", "bold");
             doc.setFontSize(18);
-            y = ensureSpace(doc, y, 24);
-            doc.text("Lexique & Allures Personnelles", 40, y);
-            y += 18;
+            doc.setTextColor(24, 60, 137);
+            doc.text("Lexique & Allures Personnelles", leftX, y);
+            y += 30;
 
-            doc.setDrawColor(0, 175, 237);
-            doc.setLineWidth(1);
-            doc.line(40, y, doc.internal.pageSize.width - 40, y);
-            y += 12;
-
-            doc.setFont("Helvetica", "normal");
-            doc.setFontSize(10);
-            y = ensureSpace(doc, y, 30);
-            doc.text(
-            "Vos allures de référence pour suivre ce plan, calculées selon votre profil.",
-            40,
-            y
-            );
-            y += 20;
-
+            const allures = plan.alluresReference;
             const items = [
-                { label: "EF – Endurance Fondamentale", description: "Allure confortable, respiration aisée, tu peux parler en phrases complètes.", pace: allures.ef },
+                { label: "EF – Endurance Fondamentale", description: "Allure confortable, respiration aisée. Base de 70–80 % de ton volume.", pace: allures.ef },
                 { label: "Seuil", description: "Allure soutenue mais contrôlée, juste sous LT2.", pace: allures.seuil },
-                { label: "VMA – Vitesse Max Aérobie", description: "Allure très intense utilisée pour l'intervallé court.", pace: allures.vma },
-                { label: "AS10 (Allure 10 km)", description: "Allure cible 10 km.", pace: allures.as10 },
-                { label: "AS21 (Allure Semi)", description: "Allure Semi-Marathon.", pace: allures.as21 },
-                { label: "AS42 (Allure Marathon)", description: "Allure Marathon.", pace: allures.as42 }
+                { label: "VMA", description: "Vitesse Max Aérobie, pour le fractionné court.", pace: allures.vma },
+                { label: "AS10", description: "Allure 10 km.", pace: allures.as10 },
+                { label: "AS21", description: "Allure Semi-Marathon.", pace: allures.as21 },
+                { label: "AS42", description: "Allure Marathon.", pace: allures.as42 }
             ];
 
-            const cardHeight = 52;
-            const cardSpacing = 10;
-            const left = 40;
-            const right = doc.internal.pageSize.width - 40;
-
-            items.forEach(item => {
-                y = ensureSpace(doc, y, cardHeight + cardSpacing);
+             items.forEach(item => {
+                const cardHeight = 60;
+                y = ensureSpace(doc, y, cardHeight + 10);
 
                 doc.setFillColor(248, 249, 252);
                 doc.setDrawColor(220, 225, 235);
-                doc.roundedRect(left, y, right - left, cardHeight, 4, 4, "FD");
+                doc.roundedRect(leftX, y, contentWidth, cardHeight, 4, 4, "FD");
 
-                let textY = y + 16;
                 doc.setFont("Helvetica", "bold");
                 doc.setFontSize(11);
-                doc.text(item.label, left + 10, textY);
+                doc.setTextColor(0, 0, 0);
+                doc.text(item.label, leftX + 10, y + 20);
 
                 doc.setFont("Helvetica", "normal");
                 doc.setFontSize(9);
-                const descLines = doc.splitTextToSize(item.description, right - left - 20);
-                textY += 10;
-                doc.text(descLines, left + 10, textY);
+                doc.setTextColor(80, 80, 80);
+                doc.text(item.description, leftX + 10, y + 35);
 
                 doc.setFont("Helvetica", "bold");
                 doc.setFontSize(11);
                 doc.setTextColor(0, 63, 137);
-                doc.text(item.pace, right - 10, y + 16, { align: "right" });
-                doc.setTextColor(0, 0, 0);
+                doc.text(item.pace, rightX - 10, y + 20, { align: "right" });
 
-                y += cardHeight + cardSpacing;
+                y += cardHeight + 15;
             });
-        }).save();
+
+            // --- MANUAL PDF GENERATION END ---
+            doc.save(`Plan_SARC_${savedPlan.userProfile.objective}.pdf`);
+        });
     };
 
     return (
         <div className="animate-fade-in relative pb-12">
-             <div style={{ position: 'absolute', left: '-9999px', top: 'auto' }}>
-                <PDFExportTemplate plan={plan} userProfile={savedPlan.userProfile} />
-            </div>
-
             <div className="text-center mb-8 no-print pt-6">
                 <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">Calendrier Réel</h1>
                 <p className="text-xl text-gray-300">Objectif : <span className="text-[#00AFED] font-bold">{formatDate(plan.raceDate)}</span></p>
@@ -451,7 +496,7 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                     <button onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')} className="px-5 py-2 text-sm bg-[#FF38B1] text-white rounded-full hover:bg-[#FF38B1]/80 glow-shadow-pink">
                         {viewMode === 'list' ? '📅 Vue Calendrier' : '📝 Vue Liste'}
                     </button>
-                    <button onClick={handlePrint} className="px-5 py-2 text-sm bg-white/10 text-white rounded-full hover:bg-white/20">🖨️ PDF</button>
+                    <button onClick={handlePrint} className="px-5 py-2 text-sm bg-white/10 text-white rounded-full hover:bg-white/20">🖨️ PDF (A4)</button>
                     <button onClick={onNewPlanRequest} className="px-5 py-2 text-sm bg-[#00AFED] text-white rounded-full hover:bg-[#0095c7]">Nouveau Plan</button>
                 </div>
             </div>
@@ -517,47 +562,20 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                 <h2 className="text-2xl font-semibold text-white mb-4">
                     Lexique &amp; Allures Personnelles
                 </h2>
-
-                <p className="text-sm text-gray-300 mb-6">
-                    Voici les allures et termes clés utilisés dans ton plan. Garde ce bloc sous la main pour ne jamais être perdu pendant tes séances.
-                </p>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <LexiqueItem
-                        label="EF – Endurance Fondamentale"
-                        pace={plan.alluresReference.ef}
-                        description="Allure confortable, respiration aisée, tu peux parler en phrases complètes. Base de 70–80 % de ton volume."
-                    />
-                    <LexiqueItem
-                        label="Seuil"
-                        pace={plan.alluresReference.seuil}
-                        description="Allure soutenue mais contrôlée, tu es juste en dessous de la zone où ça “brûle”. Sert à améliorer ta capacité à tenir une allure rapide longtemps."
-                    />
-                    <LexiqueItem
-                        label="VMA – Vitesse Max Aérobie"
-                        pace={plan.alluresReference.vma}
-                        description="Allure très intense que tu peux tenir 4 à 7 minutes. Utilisée pour les intervalles courts (200–400 m, 30/30...)."
-                    />
-                    <LexiqueItem
-                        label="AS10"
-                        pace={plan.alluresReference.as10}
-                        description="Allure cible sur 10 km. Sert pour les blocs de travail spécifique 10 km."
-                    />
-                    <LexiqueItem
-                        label="AS21"
-                        pace={plan.alluresReference.as21}
-                        description="Allure cible Semi-Marathon. Utilisée pour les blocs d’endurance soutenue."
-                    />
-                    <LexiqueItem
-                        label="AS42"
-                        pace={plan.alluresReference.as42}
-                        description="Allure cible Marathon. Base des séances spécifiques longues pour les prépas marathon."
-                    />
+                    <LexiqueItem label="EF" pace={plan.alluresReference.ef} description="Base aérobie." />
+                    <LexiqueItem label="Seuil" pace={plan.alluresReference.seuil} description="Soutenu contrôlé." />
+                    <LexiqueItem label="VMA" pace={plan.alluresReference.vma} description="Haute intensité." />
+                    <LexiqueItem label="AS10" pace={plan.alluresReference.as10} description="Cible 10km." />
+                    <LexiqueItem label="AS21" pace={plan.alluresReference.as21} description="Cible Semi." />
+                    <LexiqueItem label="AS42" pace={plan.alluresReference.as42} description="Cible Marathon." />
                 </div>
             </section>
 
             {feedbackTarget && <FeedbackModal session={feedbackTarget.session} onClose={() => setFeedbackTarget(null)} onSubmit={handleFeedbackSubmit} />}
             {suggestionTarget && <SessionSuggestionModal session={suggestionTarget} onClose={() => setSuggestionTarget(null)} />}
+            
+            {/* Modal Detail Session */}
             {selectedSession && (
                 <div 
                     className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
@@ -583,7 +601,19 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
                                 <div className="bg-white/5 p-3 rounded-lg"><p className="text-xs text-gray-400 uppercase">Volume</p><p className="text-white font-bold">{selectedSession.session.volume} km</p></div>
                                 <div className="bg-white/5 p-3 rounded-lg"><p className="text-xs text-gray-400 uppercase">Objectif</p><p className="text-white text-sm">{selectedSession.session.objectif}</p></div>
                             </div>
-                            <button onClick={() => { setSelectedSession(null); setSuggestionTarget(selectedSession.session); }} className="w-full py-3 bg-[#FF38B1] text-white font-bold rounded-full hover:bg-[#FF38B1]/80 transition-colors">Adaptation IA</button>
+                            
+                            {/* TYPING BAR REPLACEMENT */}
+                            <div className="mt-6 cursor-pointer" onClick={() => { setSelectedSession(null); setSuggestionTarget(selectedSession.session); }}>
+                              <div className="w-full rounded-full bg-white/5 border border-white/15 px-4 py-3 text-sm text-gray-400 flex items-center hover:bg-white/10 transition-colors">
+                                <span className="flex-1 select-none opacity-70">
+                                  Modifier ma séance...
+                                </span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>

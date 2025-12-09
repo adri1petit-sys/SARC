@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import type { User } from './types';
 import LandingPage from './components/LandingPage';
@@ -23,58 +22,11 @@ const ApiKeyErrorDisplay: React.FC<{ error: string; onRetry: () => void }> = ({ 
             </nav>
         </header>
         <main className="flex-grow flex items-center justify-center p-4">
-            <div className="text-center w-full max-w-4xl animate-fade-in">
-                <div className="bg-black/40 backdrop-blur-xl border border-[#FF38B1] rounded-3xl p-8 sm:p-12 shadow-2xl glow-shadow-pink mx-auto relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-[#FF38B1] to-transparent"></div>
-                    
-                    <h2 className="text-3xl sm:text-4xl font-bold text-[#FF38B1] mb-6">Configuration Manquante</h2>
-                    
-                    <div className="text-left space-y-6 text-gray-300 mb-8 max-w-2xl mx-auto">
-                        <div className="flex gap-4">
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 font-bold">!</div>
-                            <div>
-                                <h3 className="font-bold text-white text-lg">Clé API introuvable</h3>
-                                <p className="text-sm mt-1">L'application ne trouve pas la clé API nécessaire pour communiquer avec l'IA.</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white/5 p-5 rounded-xl border border-white/10">
-                            <h3 className="font-bold text-[#00AFED] text-lg mb-3 flex items-center gap-2">
-                                🛠️ Comment corriger (Vercel / Netlify)
-                            </h3>
-                            <ol className="list-decimal list-inside space-y-3 text-sm">
-                                <li>
-                                    Allez sur <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-white underline hover:text-[#00AFED]">Google AI Studio</a> pour récupérer votre clé.
-                                </li>
-                                <li>
-                                    Dans les paramètres de votre hébergeur (ex: Vercel &rarr; Settings &rarr; Environment Variables), ajoutez une nouvelle variable :
-                                </li>
-                            </ol>
-                            <div className="mt-4 font-mono bg-black/50 p-4 rounded-lg border border-white/10 flex flex-col sm:flex-row gap-2 items-center justify-center sm:justify-start">
-                                <span className="text-[#FF38B1] font-bold">VITE_API_KEY</span>
-                                <span className="hidden sm:inline text-gray-500">=</span>
-                                <span className="text-gray-400 truncate max-w-[200px]">AIzaSy...</span>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-3">
-                                ⚠️ Important : Le préfixe <strong>VITE_</strong> est obligatoire pour que la clé soit accessible par le navigateur.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-center gap-4">
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="px-8 py-3 text-lg font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#00AFED]/50 glow-shadow-hover"
-                        >
-                            J'ai ajouté la clé, Réessayer
-                        </button>
-                    </div>
-                </div>
+             <div className="text-center w-full max-w-4xl">
+                <h2 className="text-3xl font-bold text-[#FF38B1] mb-6">Clé API Manquante</h2>
+                <button onClick={() => window.location.reload()} className="px-8 py-3 bg-[#00AFED] rounded-full text-white">Réessayer</button>
             </div>
         </main>
-        <footer className="w-full container mx-auto px-6 py-6 text-center text-gray-400 border-t border-white/10 no-print">
-            <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club.</p>
-        </footer>
     </div>
 );
 
@@ -143,7 +95,7 @@ const App: React.FC = () => {
 
 
     return (
-        <div className="min-h-screen bg-[#0B1226] text-gray-200 antialiased">
+        <div className="min-h-screen flex flex-col bg-[#0B1226] text-gray-200 antialiased">
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#0B1226]/50 backdrop-blur-lg border-b border-white/10 no-print">
                 <nav className="container mx-auto px-6 py-3 flex justify-between items-center">
                     <Logo />
@@ -159,7 +111,9 @@ const App: React.FC = () => {
                 </nav>
             </header>
             
-            {renderPage()}
+            <div className="flex-grow flex flex-col pt-16">
+                 {renderPage()}
+            </div>
             
             {showAuth && !currentUser && (
                 <AuthPage 
@@ -170,7 +124,7 @@ const App: React.FC = () => {
 
             {currentUser && <Chatbot />}
 
-            <footer className="container mx-auto px-6 py-6 text-center text-gray-400 border-t border-white/10 no-print">
+            <footer className="w-full bg-[#0B1226] border-t border-white/10 py-6 text-center text-gray-400 no-print mt-auto">
                 <p>&copy; {new Date().getFullYear()} Saint-Avertin Run Club.</p>
             </footer>
         </div>
