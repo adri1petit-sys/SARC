@@ -35,21 +35,21 @@ const getMonday = (d: Date) => {
   return new Date(dCopy.setDate(diff));
 };
 
-// --- Scientific Contexts (Condensed) ---
+// --- Scientific Contexts (Ultra-Condensed for Speed) ---
 const SCIENTIFIC_SUMMARIES: Record<string, string> = {
-    [Objective.FIVE_K]: "Focus: VMA, Économie. Cycle: Base -> Spécifique (VMA courte/longue).",
-    [Objective.TEN_K]: "Focus: Endurance-Vitesse (90-95% VMA). Cycle: Base -> Seuil -> Spécifique AS10.",
-    [Objective.HALF_MARATHON]: "Focus: Seuil LT2, Endurance. Cycle: Volume -> Tempo/Seuil -> AS21.",
-    [Objective.MARATHON]: "Focus: Durabilité, Glycogène. Cycle: Endurance -> AS42 (blocs longs) -> Affûtage 2 sem.",
-    [Objective.TRAIL_SHORT]: "Focus: Force excentrique, D+/Heure. Cycle: VMA côte -> Spécifique terrain.",
-    [Objective.ULTRA_DISTANCE]: "Focus: FatMax, Endurance mentale. Cycle: Volume -> Weekend Choc -> Affûtage long.",
-    [Objective.MAINTENANCE]: "Focus: Plaisir, Santé. Volume modéré, mix EF et variations ludiques."
+    [Objective.FIVE_K]: "VMA focus. Cycles: Base -> Spec (Short/Long Intervals). High intensity density.",
+    [Objective.TEN_K]: "Threshold/AS10 focus. Cycles: Base -> Threshold -> Spec AS10 (90% VMA).",
+    [Objective.HALF_MARATHON]: "Endurance & LT2 Threshold. Cycles: Vol -> Tempo -> AS21. Fatigue resistance.",
+    [Objective.MARATHON]: "Glycogen & Durability. Cycles: Vol -> Long Blocks AS42 -> Taper (2wks).",
+    [Objective.TRAIL_SHORT]: "Eccentric force & D+/h. Cycles: Hill VMA -> Terrain Spec. Proprioception.",
+    [Objective.ULTRA_DISTANCE]: "FatMax & Mental. Cycles: Vol -> Back-to-back long runs -> Long Taper.",
+    [Objective.MAINTENANCE]: "Fun & Health. Moderate vol, mixed intensities, no pressure."
 };
 
 export async function generateDetailedTrainingPlan(formData: FormData, useThinkingMode: boolean): Promise<DetailedTrainingPlan> {
   const ai = getAiClient();
   
-  // 1. CALCUL DES DATES
+  // 1. DATES & TIMING
   const targetDateObj = new Date(formData.targetDate);
   const today = new Date();
   const planStartDate = getMonday(today);
@@ -67,52 +67,45 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
       maintenanceWeeks = totalWeeksAvailable - prepDuration;
   }
   
-  // 2. CONTEXTE CONDENSÉ
-  const summary = SCIENTIFIC_SUMMARIES[formData.objective] || "Entraînement équilibré.";
+  // 2. CONTEXT & PROMPT CONSTRUCTION
+  const summary = SCIENTIFIC_SUMMARIES[formData.objective] || "Balanced mix.";
   
   const specificContext = formData.objective === Objective.ULTRA_DISTANCE && formData.ultraDetails
     ? `Ultra ${formData.ultraDetails.distance}, D+${formData.ultraDetails.elevationGain}`
     : formData.objective === Objective.TRAIL_SHORT && formData.trailShortDetails
       ? `Trail ${formData.trailShortDetails.distance}, D+${formData.trailShortDetails.elevationGain}`
-      : `Objectif ${formData.targetTime}`;
+      : `Obj ${formData.targetTime}`;
 
-  // 3. PROMPT DIRECTIF
+  // TELEGRAPHIC PROMPT FOR SPEED (<15s target)
   const prompt = `
-    ROLE: Coach Expert SARC. Génère un plan de ${totalWeeksAvailable} semaines (${planStartDate.toISOString().split('T')[0]} au ${formData.targetDate}).
-    PROFIL: ${formData.level}, ${formData.currentVolume}. OBJ: ${formData.objective} (${specificContext}).
-    DISPO: ${formData.availabilityDays.join(', ')}.
+    ROLE: SARC Coach. Generate JSON plan. SPEED IS CRITICAL.
+    CTX: ${totalWeeksAvailable} wks (${planStartDate.toISOString().split('T')[0]} to ${formData.targetDate}).
+    ATHLETE: ${formData.level}, ${formData.currentVolume}, ${formData.age}yo. Goal: ${formData.objective} (${specificContext}).
+    AVAILABILITY: ${formData.availabilityDays.join(', ')}.
 
     STRUCTURE:
-    - Sem 1-${maintenanceWeeks}: Maintien (si applicable).
-    - Sem ${maintenanceWeeks + 1}-${totalWeeksAvailable}: Prépa Spécifique.
+    - Wk 1-${maintenanceWeeks}: Maintenance (if >0).
+    - Wk ${maintenanceWeeks + 1}-${totalWeeksAvailable}: Specific Prep.
 
-    RÈGLES STRICTES SARC (A RESPECTER IMPERATIVEMENT) :
-    1. JOURS: Exactement ${formData.availabilityDays.length} séances/semaine correspondant aux jours : ${formData.availabilityDays.join(', ')}.
+    RULES (STRICT):
+    1. DAYS: Matches availability exactly.
+    2. WEDNESDAY (if avail): "Fractionné Surprise". MainBlock: "Surprise – contenu communiqué quelques minutes avant sur le groupe WhatsApp du club." (NO DETAILS). Struct: 20' EF + Surprise + 10' EF.
+    3. SUNDAY (if avail): "Run Club - Bois des Hâtes". 10km @ 6:00/km. If Vol > 10k, add EF before/after.
+    4. INTENSITY: Warmup/Cooldown ALWAYS "Endurance Fondamentale" (EF). No walking blocks.
+    5. PROGRESSION: Follows physiological science for ${formData.objective}.
     
-    2. MERCREDI (si dispo): C'est "Fractionné Surprise".
-       - TYPE: "Fractionné Surprise".
-       - CONTENU BLOC PRINCIPAL: "Surprise – contenu communiqué quelques minutes avant sur le groupe WhatsApp du club." (NE JAMAIS INVENTER de 30/30 ou autre détail).
-       - STRUCTURE: 20' EF + Bloc Surprise + 10' EF.
-       
-    3. DIMANCHE (si dispo): "Run Club - Bois des Hâtes".
-       - BASE: 10km @ 6:00/km. Si SL > 10km, ajouter le reste en EF avant/après.
-    
-    4. INTENSITÉ & BLOCS:
-       - Échauffement (warmup) et Retour au calme (cooldown) DOIVENT TOUJOURS être "Endurance Fondamentale" (EF). Pas de marche, pas d'étirements dans ces blocs.
-       - Le volume doit être progressif et adapté à l'objectif.
+    SCIENCE: ${summary}
 
-    CONTEXTE SCIENCE: ${summary}
-
-    OUTPUT: JSON Strict selon schema. Dates format YYYY-MM-DD.
+    OUTPUT: JSON ONLY. Short precise descriptions (2 sentences max).
   `;
 
-  // Utilisation de Flash par défaut pour la vitesse, sauf si Thinking demandé explicitement
-  // Le prompt est suffisamment guidé pour que Flash performe bien en <15s
+  // Force Flash for speed unless Thinking is explicitly requested
   const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
   
   const config: any = {
       responseMimeType: "application/json",
-      temperature: 0.7, // Équilibre créativité/structure
+      temperature: 0.7,
+      maxOutputTokens: 8192, // Cap to prevent runaways, sufficient for full plan
       responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -180,26 +173,24 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
   };
 
   if (useThinkingMode) {
-      config.thinkingConfig = { thinkingBudget: 4096 }; // Budget réduit pour rester rapide si activé
+      config.thinkingConfig = { thinkingBudget: 4096 };
   }
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const response = await ai.models.generateContent({
-        model: model,
-        contents: prompt,
-        config: config,
-      });
+  // Single attempt optimization: Flash is reliable enough.
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+      config: config,
+    });
 
-      const jsonText = response.text.trim();
-      if (!jsonText) throw new Error("Réponse vide");
-      return JSON.parse(jsonText) as DetailedTrainingPlan;
-    } catch (error) {
-        console.error("Erreur génération:", error);
-        if (attempt === 2) throw error;
-    }
+    const jsonText = response.text.trim();
+    if (!jsonText) throw new Error("Réponse vide");
+    return JSON.parse(jsonText) as DetailedTrainingPlan;
+  } catch (error) {
+    console.error("Erreur génération:", error);
+    throw new Error("Échec de la génération du plan. Veuillez réessayer.");
   }
-  throw new Error("Échec génération");
 }
 
 const formatFeedbackForAI = (plan: SavedPlan): string => {
@@ -219,10 +210,8 @@ const formatFeedbackForAI = (plan: SavedPlan): string => {
 export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<OptimizationSuggestion[]> {
   const ai = getAiClient();
   const formattedFeedback = formatFeedbackForAI(plan);
-  const prompt = `
-    TASK: Optimize plan. User: ${plan.userProfile.level}. Feedback: ${formattedFeedback}.
-    OUTPUT: JSON Array of suggestions.
-  `;
+  const prompt = `TASK: Optimize plan. User Level: ${plan.userProfile.level}. Feedback: ${formattedFeedback}. OUTPUT: JSON Array (title, suggestion, reasoning).`;
+  
   try {
      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -257,13 +246,13 @@ export async function generateChatResponse(history: ChatMessage[], newMessage: s
     return await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: contents,
-        config: { ...config, systemInstruction: `Coach SARC. Réponds en français.` }
+        config: { ...config, systemInstruction: `Coach SARC. Court et précis.` }
     });
 }
 
 export async function getSessionSuggestion(session: DetailedSession, userQuery: string): Promise<string> {
   const ai = getAiClient();
-  const prompt = `Context: Change session ${session.type} on ${session.date}. Query: "${userQuery}". Answer in French.`;
+  const prompt = `Ctx: Session ${session.type} on ${session.date}. Query: "${userQuery}". Answer in French, concise.`;
   const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
   return response.text;
 }

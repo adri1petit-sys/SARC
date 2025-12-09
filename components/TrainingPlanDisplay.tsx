@@ -204,7 +204,6 @@ const LexiqueItem: React.FC<{ label: string; pace: string; description: string }
 const CalendarView: React.FC<{ plan: DetailedTrainingPlan, completionStatus: CompletionStatus, onToggle: (w: number, s: number, sess: DetailedSession) => void, onInfo: (sess: DetailedSession, fb: SessionFeedback|undefined) => void }> = ({ plan, completionStatus, onToggle, onInfo }) => {
     const today = new Date().toISOString().split('T')[0];
     const scrollRef = useRef<HTMLDivElement>(null);
-    const [centeredWeek, setCenteredWeek] = useState<number>(1);
 
     useEffect(() => {
         const currentWeekObj = plan.plan.find(w => isDateInWeek(today, w.startDate, w.endDate));
@@ -276,6 +275,11 @@ const TrainingPlanDisplay: React.FC<TrainingPlanDisplayProps> = ({
     const weekRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
     const { plan, completionStatus, id: planId } = savedPlan;
+
+    // Force default to Calendar when plan changes
+    useEffect(() => {
+        setViewMode('calendar');
+    }, [planId]);
 
     useEffect(() => {
         const today = new Date().toISOString().split('T')[0];
