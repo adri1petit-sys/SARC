@@ -153,7 +153,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 const isUltra = formData.objective === Objective.ULTRA_DISTANCE;
 
                 if (newProgress < 30) {
-                    setLoadingMessage("Synchronisation du calendrier réel...");
+                    setLoadingMessage("Synchronisation du calendrier réel vers " + formData.targetDate + "...");
                 } else if (newProgress < 60) {
                     if (is5k) setLoadingMessage("Structuration des blocs VMA & Seuil...");
                     else if (is10k) setLoadingMessage("Calibration du volume AS10...");
@@ -178,7 +178,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             }, intervalTime);
             return () => clearInterval(interval);
         }
-    }, [isGenerating, useThinkingMode, formData.objective]);
+    }, [isGenerating, useThinkingMode, formData.objective, formData.targetDate]);
 
     if (isGenerating) {
          return (

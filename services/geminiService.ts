@@ -4,14 +4,18 @@ import { Objective } from '../types';
 
 export const getApiKey = (): string | undefined => {
     try {
-        if (typeof process !== 'undefined' && process.env?.API_KEY) return process.env.API_KEY;
-    } catch (e) { }
-    try {
         // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
         // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env?.API_KEY) return import.meta.env.API_KEY;
-    } catch (e) { }
+        
+        // Check process.env carefully to avoid browser crashes
+        if (typeof process !== 'undefined' && typeof process.env !== 'undefined' && process.env.API_KEY) {
+            return process.env.API_KEY;
+        }
+    } catch (e) { 
+        console.warn("Failed to retrieve API key", e);
+    }
     return undefined;
 };
 
@@ -43,6 +47,11 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
   const totalDurationMs = targetDateObj.getTime() - planStartDate.getTime();
   const totalWeeksAvailable = Math.ceil(totalDurationMs / (7 * MS_PER_DAY));
   
+  // Si la date est passée ou trop proche (< 1 semaine), on gère une exception ou on commence maintenant
+  if (totalWeeksAvailable < 1) {
+      throw new Error("La date d'objectif est trop proche. Veuillez choisir une date future.");
+  }
+
   const prepDuration = formData.duration;
   let maintenanceWeeks = 0;
   
@@ -58,88 +67,54 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
     ? `TRAIL COURT DETAILS: Dist=${formData.trailShortDetails.distance}, D+=${formData.trailShortDetails.elevationGain}, Terrain=${formData.trailShortDetails.terrainType}, TempsCible=${formData.trailShortDetails.targetTime || 'Non précisé'}.`
     : '';
 
-  // 2. SÉLECTION DU CONTEXTE SCIENTIFIQUE SELON L'OBJECTIF (LES BIBLES)
+  // 2. SÉLECTION DU CONTEXTE SCIENTIFIQUE SELON L'OBJECTIF
   let scientificContext = "";
 
   if (formData.objective === Objective.FIVE_K) {
       scientificContext = `
-      --- BIBLE 5000M (SCIENCE & PERFORMANCE) ---
-      1. PHYSIOLOGIE : Effort supra-critique (> Seuil Anaérobie LT2). Facteurs clés : VMA (vVO2max), Économie de course (RE), Tolérance lactique.
-      2. ARCHITECTURE : Base (EF + Vitesse pure) -> Construction (VMA + Seuil) -> Spécifique (Allure 5k). Affûtage 7-10 jours (baisse vol 40-60%).
-      3. SÉANCES CLÉS : VMA Courte (30/30, 400m), Seuil (Tempo 20'), Neuromusculaire (Force/Plyo).
-      4. PROFILS :
-         - Débutant : 2-3 séances/sem, Focus Durée.
-         - Avancé : 5-7 séances/sem, Polarisation.
+      --- BIBLE 5000M ---
+      Focus: VMA (vVO2max), Économie de course.
+      Architecture: Base -> Construction -> Spécifique.
       `;
   } else if (formData.objective === Objective.TEN_K) {
       scientificContext = `
-      --- BIBLE 10 KM (MATRICE PERFORMANCE) ---
-      1. PHYSIOLOGIE : Endurance-Vitesse (90-95% VMA). Facteurs : Fractional Utilization (Seuil), VO2max, Économie.
-      2. ARCHITECTURE : Base (EF dominante) -> Spécifique (Progression VTS de 4 à 8 km/séance). Affûtage 1 semaine (-50% vol).
-      3. SÉANCES CLÉS : AS10 (6x1000m, Pyramide), Seuil (Tempo 20'), SL avec blocs.
-      4. PROFILS :
-         - Débutant (Finir) : 2-3 séances, Focus durée.
-         - Élite (<35') : 6-8 séances, AS10 longue (3x2000m).
+      --- BIBLE 10 KM ---
+      Focus: Endurance-Vitesse (90-95% VMA).
+      Architecture: Base -> Spécifique (VTS 4-8 km).
       `;
   } else if (formData.objective === Objective.HALF_MARATHON) {
       scientificContext = `
-      --- BIBLE SEMI-MARATHON (MATRICE PERFORMANCE) ---
-      1. PHYSIOLOGIE : Effort Aérobie soutenu (~85-90% VO2max, Seuil Anaérobie LT2).
-      2. ARCHITECTURE : Base (Volume, EF) -> Spécifique (Seuil/Tempo prédominant, AS21, SL structurée). Affûtage 10-14 jours.
-      3. SÉANCES CLÉS : Seuil/Tempo (20-40' continu ou 3x10'), AS21 (3x3000m), SL (1h30-2h00 avec blocs finaux).
-      4. PROFILS :
-         - Débutant : 2-3 séances, SL progressive.
-         - Élite : 7+ séances, Spécial blocks Canova.
+      --- BIBLE SEMI-MARATHON ---
+      Focus: Seuil Anaérobie LT2.
+      Architecture: Volume -> Seuil/Tempo -> Spécifique AS21.
       `;
   } else if (formData.objective === Objective.MARATHON) {
       scientificContext = `
-      --- BIBLE MARATHON EXPERT ---
-      1. PHYSIOLOGIE : Durabilité, Glycogène, Résistance musculaire. Invariants : 80-90% EF, SL obligatoire.
-      2. ARCHITECTURE : Base (Volume + Force) -> Spécifique (Intégration AS42 progressive) -> Affûtage (2-3 semaines, baisse exp.).
-      3. SÉANCES CLÉS : SL Spécifique (jusqu'à 2h30-3h00 avec blocs AS42), Seuil long, AS42 (3x5km).
-      4. PROFILS :
-         - Débutant : Pic 40-60km, SL max 2h30 EF.
-         - Élite : Pic >110km, SL complexe.
+      --- BIBLE MARATHON ---
+      Focus: Durabilité, Glycogène.
+      Architecture: Base -> Spécifique (AS42) -> Affûtage 2-3 sem.
       `;
   } else if (formData.objective === Objective.TRAIL_SHORT) {
       scientificContext = `
-      --- BIBLE TRAIL COURT (0-44 KM-EFFORT) ---
-      1. PHYSIOLOGIE : Kilomètre-Effort. Ratio D+/Heure, Puissance Aérobie Ascensionnelle, Résistance Excentrique (D-).
-      2. ARCHITECTURE : Générale (Base aérobie + VMA plat) -> Spécifique (Intégration D+, Côtes, D-). Affûtage Mécanique (2 sem, réduction D-).
-      3. SÉANCES CLÉS : VMA Côte, Seuil Côte, Rando-Course (pentes >15%), Excentrique.
-      4. PROFILS :
-         - Débutant : 3-4h/sem, D+ 300-600m.
-         - Élite : 6-10h/sem, D+ >1300m, VMA côte.
+      --- BIBLE TRAIL COURT ---
+      Focus: Ratio D+/Heure, Force Excentrique.
+      Architecture: Base -> Spécifique D+ -> Affûtage Mécanique.
       `;
   } else if (formData.objective === Objective.ULTRA_DISTANCE) {
       scientificContext = `
-      --- BIBLE ULTRA-TRAIL (42KM - 160KM+) ---
-      1. PHYSIOLOGIE : Intensité 45-60% VO2max. FatMax, Glycogen sparing, Fatigue Centrale (sommeil), Fatigue Périphérique (casse).
-      2. ARCHITECTURE : Polarisation 80/20. Weekend Choc (Accumulation fatigue 2 jours). Affûtage long (2-3 sem).
-      3. SÉANCES CLÉS : Rando-Course, Weekend Choc, Renforcement Excentrique.
-      4. PROFILS :
-         - Débutant (50-80k) : 6-10h/sem.
-         - Élite : 15-25h/sem, Weekend Choc lourd.
-      `;
-  } else {
-      scientificContext = `
-      --- CADRE GÉNÉRAL ENDURANCE ---
-      - Polarisation 80/20.
-      - Progressivité +10%/semaine.
-      - Spécificité croissante.
+      --- BIBLE ULTRA-TRAIL ---
+      Focus: FatMax, Gestion Fatigue (Weekend Choc).
+      Architecture: Polarisation -> Weekend Choc -> Affûtage long.
       `;
   }
 
-  // 3. CONSTRUCTION DU PROMPT
+  // 3. CONSTRUCTION DU PROMPT AVEC CONTRAINTES STRICTES
   const prompt = `
-    ROLE: Coach Expert Endurance & Physiologie (Haut Niveau), SPÉCIALISTE ${formData.objective}.
-    MISSION: Générer un plan d'entraînement 100% personnalisé, respectant STRICTEMENT la BIBLE SCIENTIFIQUE ci-dessous.
-
-    ${scientificContext}
+    ROLE: Coach Expert SARC (Saint-Avertin Run Club).
+    MISSION: Générer un plan d'entraînement structuré sur ${totalWeeksAvailable} semaines, du ${planStartDate.toISOString().split('T')[0]} au ${formData.targetDate}.
 
     CONTEXTE UTILISATEUR :
     - Profil : ${formData.gender}, ${formData.age} ans, Niveau ${formData.level}.
-    - Volume actuel : ${formData.currentVolume}. Historique : ${formData.runningHistory}.
     - Objectif : ${
       formData.objective === Objective.ULTRA_DISTANCE
         ? ultraContext
@@ -147,28 +122,33 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
           ? trailContext
           : `Objectif ${formData.objective} en ${formData.targetTime}`
     }.
-    - Dispo Jours : ${formData.availabilityDays.join(', ')}. (${formData.availabilityDays.length} jours/semaine).
-    - Stress Vie : ${formData.lifeStress}.
-    - Terrain : ${formData.terrain}.
+    - Dispo Jours : ${formData.availabilityDays.join(', ')}.
+    - Note : Le volume de la prépa doit être calibré pour réussir l'OBJECTIF, indépendamment du volume historique (augmentation progressive sécurisée).
 
-    CONTEXTE CALENDRIER :
-    - Date départ plan : ${planStartDate.toISOString().split('T')[0]}
-    - Date course : ${formData.targetDate}
-    - Total semaines : ${totalWeeksAvailable}
-    - Maintien : Semaines 1 à ${maintenanceWeeks}.
-    - Prépa : ${prepDuration} semaines.
+    CALENDRIER :
+    - Semaines 1 à ${maintenanceWeeks} : PHASE DE MAINTIEN / SOCLE (Si ${maintenanceWeeks} > 0).
+    - Semaines ${maintenanceWeeks + 1} à ${totalWeeksAvailable} : PRÉPARATION SPÉCIFIQUE (${prepDuration} semaines).
+    - Date de course : ${formData.targetDate}.
 
-    RÈGLES IMPÉRATIVES DE GÉNÉRATION :
-    1. NOMBRE DE SÉANCES : Tu DOIS générer EXACTEMENT ${formData.availabilityDays.length} séances par semaine pour chaque semaine du plan. (Sauf affûtage extrême si nécessaire, mais rester proche). Si l'utilisateur a 5 jours de dispo, il doit y avoir 5 séances.
-    2. SÉANCES FIXES (SARC) :
-       - Mercredi : "Fractionné Surprise" (15' EF + 20' Surprise + 15' EF).
-       - Dimanche : "Sortie Longue / Run Club" (Base 10km, ajustée selon objectif/bible).
-    3. FORMAT SÉANCES :
-       - 100% EF : Contenu = 1 ligne (ex: "1h00 EF"). Champs détails vides.
-       - Qualité : Contenu structuré (Warmup, MainBlock, Cooldown). Champs détails remplis.
-    4. PERSONNALISATION : Adapte le volume et l'intensité au profil (Débutant vs Élite) selon la BIBLE.
+    RÈGLES IMPÉRATIVES DE GÉNÉRATION (CONTRAINTES SARC) :
+    1. JOURS : Générer EXACTEMENT ${formData.availabilityDays.length} séances/semaine correspondant aux jours de dispo (${formData.availabilityDays.join(', ')}).
+    
+    2. RÈGLE DU MERCREDI (Si Mercredi est dans les dispos) :
+       - OBLIGATOIRE : Séance "Fractionné Surprise".
+       - STRUCTURE : "15' EF - 20' Fractionné Surprise (ex: 30/30, Pyramide, Côtes...) - 15' EF".
+       
+    3. RÈGLE DU DIMANCHE (Si Dimanche est dans les dispos) :
+       - OBLIGATOIRE : "Run Club - Bois des Hâtes".
+       - BASE : 10 km à 6:00/km (allure sociale).
+       - ADAPTATION : Si la Sortie Longue (SL) exigée par le plan > 10km, ajouter le volume en "EF avant" ou "EF après" la sortie club.
+    
+    4. FORMAT JSON STRICT :
+       - Les dates doivent être réelles (YYYY-MM-DD).
+       - Le champ 'contenu' des séances qualité doit être détaillé.
 
-    OUTPUT : JSON uniquement.
+    ${scientificContext}
+
+    OUTPUT : JSON uniquement selon le schéma fourni.
   `;
 
   const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
@@ -257,6 +237,7 @@ export async function generateDetailedTrainingPlan(formData: FormData, useThinki
       if (!jsonText) throw new Error("Réponse vide");
       return JSON.parse(jsonText) as DetailedTrainingPlan;
     } catch (error) {
+        console.error("Erreur génération:", error);
         if (attempt === MAX_RETRIES) throw error;
     }
   }
