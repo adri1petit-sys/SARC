@@ -18,7 +18,7 @@ interface DashboardPageProps {
 }
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
-    const [view, setView] = useState<'dashboard' | 'generator'>('dashboard');
+    const [view, setView] = useState<'calendar' | 'generator'>('calendar');
     const [plans, setPlans] = useState<SavedPlan[]>([]);
     const [activePlan, setActivePlan] = useState<SavedPlan | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -50,7 +50,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         const newPlan = savePlanForUser(user.id, planData, formData);
         loadPlans();
         setActivePlan(newPlan);
-        setView('dashboard');
+        setView('calendar');
     };
 
     const handleUpdateCompletion = (planId: string, newStatus: CompletionStatus) => {
@@ -109,7 +109,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
              <main className="container mx-auto px-6 py-12 flex-grow flex flex-col">
                 <GeneratorPage 
                     onPlanGenerated={handlePlanGenerated}
-                    onCancel={() => setView('dashboard')}
+                    onCancel={() => setView('calendar')}
                 />
             </main>
         )
@@ -121,7 +121,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
                 Bonjour {user.name}, prêt à vous entraîner ?
             </h1>
             <p className="text-lg text-gray-400 mb-8">
-                Bienvenue sur votre tableau de bord personnel.
+                Bienvenue sur votre calendrier d'entraînement.
             </p>
 
             <div className="flex-1">

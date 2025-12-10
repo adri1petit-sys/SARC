@@ -196,6 +196,62 @@ Invalides si :
 6) RÈGLE ABSOLUE
 ====================================================================
 Toute donnée manquante ou non décrite dans la Bible = "Non applicable selon Bible".  Aucune improvisation n’est permise en dehors du cadre défini.
+
+====================================================================
+7) RÈGLES DE COHÉRENCE MATHÉMATIQUE — OBLIGATOIRES
+====================================================================
+
+Chaque séance, chaque semaine et le plan entier doivent être
+NUMÉRIQUEMENT COHÉRENTS. Les volumes doivent être EXACTS et résulter de
+calculs stricts, jamais d’estimations approximatives.
+
+RÈGLES STRICTES :
+
+1) COHÉRENCE DES SÉANCES
+Pour chaque séance (jour) :
+- Le volume total indiqué (ex: "Séance • 14 km") doit être EXACTEMENT égal
+  à la somme :
+    distance(warm-up) + distance(mainBlock) + distance(cooldown)
+- Toute structure doit être traduite en km réels :
+    • EF 10 min → convertir en km via allure EF personnelle
+    • "3×5 min @ Seuil" → calculer la distance réelle = allure seuil × temps
+    • "3×1000m + récup 200m" → conversion directe en km
+    • Toute récupération (en temps ou distance) doit être convertie en km
+- Interdiction ABSOLUE de générer un volume approximatif.
+
+2) CONVERSION DES BLOCS TEMPORELS
+Lorsqu'une durée est utilisée (min), elle doit être convertie en km selon
+l’allure correspondante (EF, Seuil, AS10, AS21, AS42, VMA, etc.).
+La conversion doit être mathématique :
+    distance_km = temps_minutes × allure_min/km ÷ 60
+
+3) COHÉRENCE DU VOLUME HEBDOMADAIRE
+Le volume hebdomadaire affiché doit être EXACTEMENT
+la somme des volumes journaliers.
+Interdiction d’arrondir arbitrairement.
+
+4) COHÉRENCE GLOBALE
+- Aucun jour ne peut afficher un volume différent de celui réellement calculé.
+- Aucun écart ne doit exister entre :
+    ✔ le texte de la séance
+    ✔ le volume affiché pour la séance
+    ✔ la somme hebdomadaire
+- Toute incohérence doit être corrigée automatiquement par recalcul mathématique.
+
+5) RÈGLE DE VALIDATION INTERNE
+Avant de renvoyer le JSON final :
+- Vérifier mathématiquement chaque séance
+- Vérifier mathématiquement chaque semaine
+- Si une incohérence existe → corriger AVANT de renvoyer le plan
+
+6) PRÉSERVATION DE LA BIBLE
+Ces règles ne doivent en AUCUN CAS modifier :
+- Le type des séances
+- La structure warm-up / mainBlock / cooldown
+- Les allures prescrites
+- Les volumes programmés par la logique d’entraînement
+
+Elles servent uniquement à garantir une cohérence numérique parfaite.
 `;
 
 /*
