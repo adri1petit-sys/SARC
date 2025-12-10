@@ -427,23 +427,47 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
         });
     });
 
-    // 2. Validate Last Week contains Race Date
-    const finalWeek = planWeeks[planWeeks.length - 1];
-    const fStart = new Date(finalWeek.startDate);
-    const fEnd = new Date(finalWeek.endDate);
-    
-    // Normalize times for comparison
-    const rDate = new Date(raceDateStr); rDate.setHours(0,0,0,0);
-    fStart.setHours(0,0,0,0);
-    fEnd.setHours(0,0,0,0);
+    // Correction automatique si la raceDate n'est pas dans la dernière semaine
+const raceInsideFinalWeek = rDate >= fStart && rDate <= fEnd;
 
-    // Allow race date to be on the Sunday of the week (standard end) or strictly inside
-    if (rDate < fStart || rDate > fEnd) {
-        console.error(`Mismatch: Race ${rDate.toISOString()} not in [${fStart.toISOString()}, ${fEnd.toISOString()}]`);
-        // We throw an error here because the prompt explicitly says "Toute génération qui ne se termine pas EXACTEMENT sur la raceDate est invalide".
-        // Recalculating earlier fixed continuity, but if the week count was wrong, we can't magically fix it without adding/removing weeks content.
-        throw new Error("Erreur critique de calendrier : La date de course n'est pas dans la dernière semaine du plan généré. Veuillez réessayer.");
-    }
+if (!raceInsideFinalWeek) {
+    // Créer une nouvelle semaine finale contenant la date de course
+    const correctedStart = new Date(rDate);
+    correctedStart.setDate(rDate.getDate() - correctedStart.getDay() + 1); // Lundi
+
+    const correctedEnd = new Date(correctedStart);
+    correctedEnd.setDate(correctedStart.getDate() + 6);
+
+    planWeeks.push({
+      semaine: planWeeks.length + 1,
+      phase: "SEMAINE DE COURSE",
+      startDate: correctedStart.toISOString().split("T")[0],
+      endDate: correctedEnd.toISOString().split("T")[0],
+      volumeTotal: 0,
+      repartition: { ef: 100, intensite: 0 },
+      resume: "Semaine de course incluant la date d’objectif.",
+      jours: [
+        {
+          jour: "Dimanche",
+          date: raceDateStr,
+          type: "Course",
+          contenu: "Jour de course — Objectif final.",
+          warmup: "5 min EF",
+          mainBlock: "Course",
+          cooldown: "Libre",
+          objectif: "Atteindre l’objectif de course",
+          volume: 0,
+          allure: "",
+          frequenceCardiaque: "",
+          rpe: "",
+        },
+      ],
+    });
+
+    // Réassigner finalWeek pour les étapes suivantes
+    finalWeek = planWeeks[planWeeks.length - 1];
+}
+
 
     // 3. Mark "DÉBUT PRÉPARATION SPÉCIFIQUE"
     // Maintenance weeks are at index 0 to maintenanceWeeks-1.
