@@ -428,13 +428,17 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
     });
 
 // Préparation pour la vérification finale
-const finalWeek = planWeeks[planWeeks.length - 1];
-const fStart = new Date(finalWeek.startDate);
-const fEnd = new Date(finalWeek.endDate);
+let finalWeek = planWeeks[planWeeks.length - 1];  // <-- remplacé par LET
+let fStart = new Date(finalWeek.startDate);
+let fEnd = new Date(finalWeek.endDate);
 
 // Normaliser pour comparaison
 const rDate = new Date(raceDateStr);
 rDate.setHours(0,0,0,0);
+// Réassigner finalWeek pour les étapes suivantes + recalcul
+finalWeek = planWeeks[planWeeks.length - 1];
+fStart = new Date(finalWeek.startDate);
+fEnd = new Date(finalWeek.endDate);
 fStart.setHours(0,0,0,0);
 fEnd.setHours(0,0,0,0);
 
