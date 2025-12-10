@@ -252,6 +252,68 @@ Ces règles ne doivent en AUCUN CAS modifier :
 - Les volumes programmés par la logique d’entraînement
 
 Elles servent uniquement à garantir une cohérence numérique parfaite.
+
+====================================================================
+8) RÈGLES DE CALENDRIER ET D’AFFICHAGE — OBLIGATOIRES
+====================================================================
+
+8.1 RESPECT ABSOLU DE LA DATE D’OBJECTIF
+La date d’objectif fournie par l’utilisateur (raceDate) est FIXE,
+NON MODIFIABLE et NON DÉCALABLE.
+Interdictions strictes :
+
+• La dernière semaine du plan doit OBLIGATOIREMENT contenir la date
+  EXACTE de l’objectif (exemple : "Semaine de course – 12 avril").
+• Il est interdit de décaler l’objectif d’une semaine ou de raccourcir
+  ou rallonger la prépa pour "faire rentrer" des semaines supplémentaires.
+• Le nombre total de semaines doit être ajusté autour de cette contrainte,
+  mais la date d’objectif reste intangible.
+
+Toute génération qui ne se termine pas EXACTEMENT sur la raceDate est invalide
+et doit être automatiquement corrigée avant renvoi du JSON.
+
+8.2 RESPECT STRICT DU DÉBUT DE LA PRÉPARATION SPÉCIFIQUE
+Le générateur doit identifier automatiquement :
+
+• Semaine(s) de maintien AVANT la prépa spécifique.
+• Semaine EXACTE où débute la “Préparation Spécifique”.
+
+Cette semaine doit être clairement marquée en titre :
+  TITRE EXACT : "DÉBUT PRÉPARATION SPÉCIFIQUE"
+
+Interdictions :
+• Interdiction de commencer la prépa spécifique la mauvaise semaine.
+• Interdiction de laisser un titre générique ("Préparation spécifique") lors de la transition.
+
+8.3 STRUCTURE D’AFFICHAGE OBLIGATOIRE DANS LE JSON
+Pour chaque semaine, le champ \`phase\` doit indiquer :
+
+• "MAINTIEN" pour les semaines avant la prépa.
+• "DÉBUT PRÉPARATION SPÉCIFIQUE" pour la première semaine du block spécifique.
+• "PRÉPARATION SPÉCIFIQUE" pour les semaines suivantes.
+• "PRÉPARATION SPÉCIFIQUE — ASSIMILATION" pour la semaine de décharge du microcycle.
+• "AFFÛTAGE" pour l’avant-dernière semaine.
+• "SEMAINE DE COURSE" pour la dernière semaine contenant la raceDate.
+
+Ces libellés doivent être EXACTS, sans variante.
+
+8.4 DIRIGER LE CALENDRIER SUR LE SITE ET LE PDF
+Pour permettre une lecture claire (site + PDF), la structure suivante doit être garantie :
+
+• startDate = date du lundi de la première semaine de maintien
+• endDate = date du dimanche de la dernière semaine de course
+• raceDate = la date exacte de l’objectif, insérée dans la semaine finale
+
+8.5 VALIDATION INTERNE AVANT RENVOI DU PLAN
+Avant d’envoyer le JSON final :
+
+Le modèle doit vérifier que :
+• La raceDate est bien située dans la dernière semaine.
+• Le nombre total de semaines commence bien au lundi (startDate).
+• La transition MAINTIEN → DÉBUT PRÉPARATION SPÉCIFIQUE est correctement étiquetée.
+• Tous les titres de semaine sont corrects.
+
+Si un seul de ces points est incohérent, corriger automatiquement avant renvoi.
 `;
 
 /*
@@ -325,6 +387,90 @@ function safeJsonParse<T>(jsonString: string): T {
     }
     throw _;
   }
+}
+
+/**
+ * Validates and corrects the plan dates and phase labels.
+ * Enforces strict calendar alignment and SARC naming conventions.
+ */
+function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, maintenanceWeeks: number): DetailedTrainingPlan {
+    const raceDate = new Date(raceDateStr);
+    const planWeeks = plan.plan;
+
+    if (!planWeeks || planWeeks.length === 0) throw new Error("Le plan généré est vide.");
+
+    // 1. Recalculate dates for the whole plan from the calculated startDate
+    // This ensures mathematical consistency: dates must be continuous from the start.
+    const anchorStart = new Date(plan.startDate);
+    
+    planWeeks.forEach((week, index) => {
+        const weekStart = new Date(anchorStart);
+        weekStart.setDate(anchorStart.getDate() + (index * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        week.startDate = weekStart.toISOString().split('T')[0];
+        week.endDate = weekEnd.toISOString().split('T')[0];
+        
+        // Update session dates based on the day of the week
+        const dayMap: {[key: string]: number} = {
+            "Lundi": 0, "Mardi": 1, "Mercredi": 2, "Jeudi": 3, "Vendredi": 4, "Samedi": 5, "Dimanche": 6
+        };
+        week.jours.forEach((day) => {
+             // Normalize day string to handle potential AI casing issues
+             const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
+             if (dayMap.hasOwnProperty(dayName)) {
+                 const sessionDate = new Date(weekStart);
+                 sessionDate.setDate(weekStart.getDate() + dayMap[dayName]);
+                 day.date = sessionDate.toISOString().split('T')[0];
+             }
+        });
+    });
+
+    // 2. Validate Last Week contains Race Date
+    const finalWeek = planWeeks[planWeeks.length - 1];
+    const fStart = new Date(finalWeek.startDate);
+    const fEnd = new Date(finalWeek.endDate);
+    
+    // Normalize times for comparison
+    const rDate = new Date(raceDateStr); rDate.setHours(0,0,0,0);
+    fStart.setHours(0,0,0,0);
+    fEnd.setHours(0,0,0,0);
+
+    // Allow race date to be on the Sunday of the week (standard end) or strictly inside
+    if (rDate < fStart || rDate > fEnd) {
+        console.error(`Mismatch: Race ${rDate.toISOString()} not in [${fStart.toISOString()}, ${fEnd.toISOString()}]`);
+        // We throw an error here because the prompt explicitly says "Toute génération qui ne se termine pas EXACTEMENT sur la raceDate est invalide".
+        // Recalculating earlier fixed continuity, but if the week count was wrong, we can't magically fix it without adding/removing weeks content.
+        throw new Error("Erreur critique de calendrier : La date de course n'est pas dans la dernière semaine du plan généré. Veuillez réessayer.");
+    }
+
+    // 3. Mark "DÉBUT PRÉPARATION SPÉCIFIQUE"
+    // Maintenance weeks are at index 0 to maintenanceWeeks-1.
+    // The specific prep starts at index `maintenanceWeeks`.
+    if (maintenanceWeeks < planWeeks.length) {
+        planWeeks[maintenanceWeeks].phase = "DÉBUT PRÉPARATION SPÉCIFIQUE";
+    }
+
+    // 4. Ensure other labels are clean and correct
+    // Maintenance phases
+    for (let i = 0; i < maintenanceWeeks; i++) {
+        planWeeks[i].phase = "MAINTIEN";
+    }
+    
+    // Last week label
+    planWeeks[planWeeks.length - 1].phase = "SEMAINE DE COURSE";
+
+    // Penultimate week (Affûtage) if applicable and strictly needed
+    if (planWeeks.length > 1) {
+        // If not already explicitly marked as taper, enforce it for consistency
+        const penultimate = planWeeks[planWeeks.length - 2];
+        if (!penultimate.phase.toUpperCase().includes("AFFÛTAGE")) {
+             penultimate.phase = "AFFÛTAGE";
+        }
+    }
+
+    return plan;
 }
 
 /*
@@ -500,7 +646,12 @@ export async function generateDetailedTrainingPlan(
       });
       const jsonText = response.text?.trim() ?? "";
       if (!jsonText) throw new Error("Réponse vide");
-      return safeJsonParse<DetailedTrainingPlan>(jsonText);
+      
+      const parsedPlan = safeJsonParse<DetailedTrainingPlan>(jsonText);
+      
+      // Perform strict validation and auto-correction
+      return validatePlanDates(parsedPlan, formData.targetDate, maintenanceWeeks);
+
     } catch (err) {
       console.error("Erreur génération:", err);
       if (attempt === 2) throw err;
