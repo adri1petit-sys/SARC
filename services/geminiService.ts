@@ -587,11 +587,58 @@ ${"%%TRAINING_KNOWLEDGE%%"}
 SI UNE INFO N’EXISTE PAS DANS LA BIBLE :
 → Tu écris : "Non applicable selon Bible".
 
-RÈGLES SARC FIXES :
-- Mercredi : 15' EF - 20' fractionné surprise - 15' EF.
-- Dimanche : Run Club 10 km (6:00/km, Bois des Hâtes, 10h), avec EF avant/après si VL > 10 km.
-- Échauffement + retour au calme = TOUJOURS EF
-- Aucune séance non scientifique
+RÈGLES SARC FIXES (OBLIGATOIRES) :
+
+--- MERCREDI (IMMUTABLE) ---
+- Toujours et strictement :
+  Warm-up : 15 minutes en EF  
+  Bloc : 20 minutes de fractionné court (répétitions de 30s à 3 minutes MAX).  
+  Cool-down : 15 minutes en EF  
+- Interdit : Séances longues, seuil, AS42, AS21, 1000m, 3000m, 4000m, pyramides, VMA longue.  
+- Le mercredi NE PEUT JAMAIS être une séance clé.
+
+--- DIMANCHE (RUN CLUB SARC) ---
+- Toujours : 10 km Run Club (6:00/km, Bois des Hâtes, 10h).  
+- Si sortie longue prévue > 10 km :
+    EF avant/après pour atteindre la distance prescrite.  
+- Aucun cool-down obligatoire : "Non applicable selon Bible".
+
+--- STRUCTURE VOLUME (PROGRESSION & RECUP) ---
+- Progression hebdomadaire : +5 à +10% MAX.  
+- Toutes les 3 semaines : semaine d’assimilation (-20 à -30%).  
+- Interdit : Sauts de volume > +10% ou baisses > -30%.  
+- Niveau confirmé :
+    → Volume max par semaine : 95 km.  
+    → 1 seule semaine peut atteindre 100 km si justifié par la phase spécifique.
+
+--- SORTIE LONGUE (MARA) ---
+- Jamais plus de 32–35 km.  
+- Une seule SL > 30 km est autorisée : S-5 ou S-4.  
+- Toutes les sorties longues = 25–30% du volume hebdomadaire.  
+- Interdit : SL > 35 km, SL trop fréquentes, SL > 30 km en période trop éloignée.
+
+--- JOURNÉES EF DE CHARGE (MARDI & SAMEDI) ---
+- Mardi = EF long : 12–18 km obligatoires selon la période.  
+- Samedi = EF long ou progressif : 12–18 km.  
+- Interdit : EF < 10 km le mardi ou le samedi, sauf semaine d’allégement.
+
+--- SÉANCES SPÉCIFIQUES MARATHON (AS42) ---
+- 1 séance AS42 / semaine en période spécifique.  
+- Formats autorisés :
+    • 2 × 20'  
+    • 3 × 15'  
+    • 1 × 45'  
+    • 2 × 30'  
+    • 3 × 3000m  
+    • 2 × 5000m  
+- Interdit :
+    • Blocs > 50 minutes d’un seul tenant  
+    • AS42 le mercredi  
+    • AS42 la veille ou le lendemain de la SL
+
+--- RÈGLES GÉNÉRALES ---
+- Échauffement et retour au calme = TOUJOURS EF.  
+- Interdit : séances non scientifiques, séances hors Bible, intensités non prévues.
   `;
 
   /* USER PROMPT */
