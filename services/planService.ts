@@ -1,7 +1,7 @@
 
 import type { SavedPlan, User, DetailedTrainingPlan, FormData, CompletionStatus } from '../types';
 
-const PLANS_KEY = 'sarc_plans';
+const PLANS_KEY = 'sarc_plans_v2';
 
 const getAllPlans = (): SavedPlan[] => {
     try {

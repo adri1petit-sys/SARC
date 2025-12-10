@@ -1,7 +1,8 @@
+
 import type { User } from '../types';
 
-const USERS_KEY = 'sarc_users';
-const SESSION_KEY = 'sarc_session';
+const USERS_KEY = 'sarc_users_v2';
+const SESSION_KEY = 'sarc_session_v2';
 
 // Helper to get users from localStorage
 const getUsers = (): Record<string, User> => {
