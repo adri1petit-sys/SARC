@@ -1,5 +1,8 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Objective } from "../types";
+import { savePlanForUser } from "./planService";
+import { getCurrentUser } from "./authService";
 import type {
   FormData,
   DetailedTrainingPlan,
@@ -179,7 +182,34 @@ OBJECTIF ULTRA :
   Durée en heures, pas en kilomètres. 1 sortie très longue/semaine, 1 week‑end choc toutes les 3 semaines, 1 séance seuil ou AS rando‑course.  Gestion de la fatigue prioritaire.
 
 ====================================================================
-5) RÈGLES ANTI‑ERREUR (OBLIGATOIRES)
+5) RÈGLES DE CALENDRIER ET D’AFFICHAGE — OBLIGATOIRES
+====================================================================
+
+5.1 RESPECT ABSOLU DE LA DATE D’OBJECTIF
+La date d’objectif fournie par l’utilisateur (raceDate) est FIXE.
+• La dernière semaine du plan doit OBLIGATOIREMENT contenir la date EXACTE de l’objectif.
+• Si la date de course n’est pas parfaitement alignée, le système backend corrigera automatiquement la dernière semaine.
+
+5.2 RESPECT STRICT DU DÉBUT DE LA PRÉPARATION SPÉCIFIQUE
+Le générateur doit identifier automatiquement :
+• Semaine(s) de maintien AVANT la prépa spécifique.
+• Semaine EXACTE où débute la “Préparation Spécifique”.
+
+Cette semaine doit être clairement marquée en titre avec le label :
+  "DÉBUT PRÉPARATION SPÉCIFIQUE"
+
+5.3 STRUCTURE D’AFFICHAGE OBLIGATOIRE (LABELS EXACTS)
+Pour chaque semaine, le champ \`phase\` doit indiquer STRICTEMENT l'un de ces termes :
+
+• "MAINTIEN"
+• "DÉBUT PRÉPARATION SPÉCIFIQUE"
+• "PRÉPARATION SPÉCIFIQUE"
+• "PRÉPARATION SPÉCIFIQUE — ASSIMILATION"
+• "AFFÛTAGE" (avant-dernière semaine)
+• "SEMAINE DE COURSE" (dernière semaine)
+
+====================================================================
+6) RÈGLES ANTI‑ERREUR (OBLIGATOIRES)
 ====================================================================
 Invalides si :
 • Progression hebdomadaire >12 %
@@ -193,127 +223,17 @@ Invalides si :
 • Warm-up manquant (<5 min) ou cooldown manquant (<5 min)
 
 ====================================================================
-6) RÈGLE ABSOLUE
+7) RÈGLE ABSOLUE
 ====================================================================
 Toute donnée manquante ou non décrite dans la Bible = "Non applicable selon Bible".  Aucune improvisation n’est permise en dehors du cadre défini.
 
 ====================================================================
-7) RÈGLES DE COHÉRENCE MATHÉMATIQUE — OBLIGATOIRES
+8) RÈGLES DE COHÉRENCE MATHÉMATIQUE — OBLIGATOIRES
 ====================================================================
 
 Chaque séance, chaque semaine et le plan entier doivent être
 NUMÉRIQUEMENT COHÉRENTS. Les volumes doivent être EXACTS et résulter de
 calculs stricts, jamais d’estimations approximatives.
-
-RÈGLES STRICTES :
-
-1) COHÉRENCE DES SÉANCES
-Pour chaque séance (jour) :
-- Le volume total indiqué (ex: "Séance • 14 km") doit être EXACTEMENT égal
-  à la somme :
-    distance(warm-up) + distance(mainBlock) + distance(cooldown)
-- Toute structure doit être traduite en km réels :
-    • EF 10 min → convertir en km via allure EF personnelle
-    • "3×5 min @ Seuil" → calculer la distance réelle = allure seuil × temps
-    • "3×1000m + récup 200m" → conversion directe en km
-    • Toute récupération (en temps ou distance) doit être convertie en km
-- Interdiction ABSOLUE de générer un volume approximatif.
-
-2) CONVERSION DES BLOCS TEMPORELS
-Lorsqu'une durée est utilisée (min), elle doit être convertie en km selon
-l’allure correspondante (EF, Seuil, AS10, AS21, AS42, VMA, etc.).
-La conversion doit être mathématique :
-    distance_km = temps_minutes × allure_min/km ÷ 60
-
-3) COHÉRENCE DU VOLUME HEBDOMADAIRE
-Le volume hebdomadaire affiché doit être EXACTEMENT
-la somme des volumes journaliers.
-Interdiction d’arrondir arbitrairement.
-
-4) COHÉRENCE GLOBALE
-- Aucun jour ne peut afficher un volume différent de celui réellement calculé.
-- Aucun écart ne doit exister entre :
-    ✔ le texte de la séance
-    ✔ le volume affiché pour la séance
-    ✔ la somme hebdomadaire
-- Toute incohérence doit être corrigée automatiquement par recalcul mathématique.
-
-5) RÈGLE DE VALIDATION INTERNE
-Avant de renvoyer le JSON final :
-- Vérifier mathématiquement chaque séance
-- Vérifier mathématiquement chaque semaine
-- Si une incohérence existe → corriger AVANT de renvoyer le plan
-
-6) PRÉSERVATION DE LA BIBLE
-Ces règles ne doivent en AUCUN CAS modifier :
-- Le type des séances
-- La structure warm-up / mainBlock / cooldown
-- Les allures prescrites
-- Les volumes programmés par la logique d’entraînement
-
-Elles servent uniquement à garantir une cohérence numérique parfaite.
-
-====================================================================
-8) RÈGLES DE CALENDRIER ET D’AFFICHAGE — OBLIGATOIRES
-====================================================================
-
-8.1 RESPECT ABSOLU DE LA DATE D’OBJECTIF
-La date d’objectif fournie par l’utilisateur (raceDate) est FIXE,
-NON MODIFIABLE et NON DÉCALABLE.
-Interdictions strictes :
-
-• La dernière semaine du plan doit OBLIGATOIREMENT contenir la date
-  EXACTE de l’objectif (exemple : "Semaine de course – 12 avril").
-• Il est interdit de décaler l’objectif d’une semaine ou de raccourcir
-  ou rallonger la prépa pour "faire rentrer" des semaines supplémentaires.
-• Le nombre total de semaines doit être ajusté autour de cette contrainte,
-  mais la date d’objectif reste intangible.
-
-Toute génération qui ne se termine pas EXACTEMENT sur la raceDate est invalide
-et doit être automatiquement corrigée avant renvoi du JSON.
-
-8.2 RESPECT STRICT DU DÉBUT DE LA PRÉPARATION SPÉCIFIQUE
-Le générateur doit identifier automatiquement :
-
-• Semaine(s) de maintien AVANT la prépa spécifique.
-• Semaine EXACTE où débute la “Préparation Spécifique”.
-
-Cette semaine doit être clairement marquée en titre :
-  TITRE EXACT : "DÉBUT PRÉPARATION SPÉCIFIQUE"
-
-Interdictions :
-• Interdiction de commencer la prépa spécifique la mauvaise semaine.
-• Interdiction de laisser un titre générique ("Préparation spécifique") lors de la transition.
-
-8.3 STRUCTURE D’AFFICHAGE OBLIGATOIRE DANS LE JSON
-Pour chaque semaine, le champ \`phase\` doit indiquer :
-
-• "MAINTIEN" pour les semaines avant la prépa.
-• "DÉBUT PRÉPARATION SPÉCIFIQUE" pour la première semaine du block spécifique.
-• "PRÉPARATION SPÉCIFIQUE" pour les semaines suivantes.
-• "PRÉPARATION SPÉCIFIQUE — ASSIMILATION" pour la semaine de décharge du microcycle.
-• "AFFÛTAGE" pour l’avant-dernière semaine.
-• "SEMAINE DE COURSE" pour la dernière semaine contenant la raceDate.
-
-Ces libellés doivent être EXACTS, sans variante.
-
-8.4 DIRIGER LE CALENDRIER SUR LE SITE ET LE PDF
-Pour permettre une lecture claire (site + PDF), la structure suivante doit être garantie :
-
-• startDate = date du lundi de la première semaine de maintien
-• endDate = date du dimanche de la dernière semaine de course
-• raceDate = la date exacte de l’objectif, insérée dans la semaine finale
-
-8.5 VALIDATION INTERNE AVANT RENVOI DU PLAN
-Avant d’envoyer le JSON final :
-
-Le modèle doit vérifier que :
-• La raceDate est bien située dans la dernière semaine.
-• Le nombre total de semaines commence bien au lundi (startDate).
-• La transition MAINTIEN → DÉBUT PRÉPARATION SPÉCIFIQUE est correctement étiquetée.
-• Tous les titres de semaine sont corrects.
-
-Si un seul de ces points est incohérent, corriger automatiquement avant renvoi.
 `;
 
 /*
@@ -323,22 +243,16 @@ Si un seul de ces points est incohérent, corriger automatiquement avant renvoi.
  */
 
 /**
- * Retrieve the API key from environment variables.  This function
- * supports both Vite-style import.meta.env, direct process.env,
- * and fallback to undefined.  If no key can be found an error
- * is thrown.
+ * Retrieve the API key from environment variables.
  */
 export function getApiKey(): string | undefined {
   try {
-    // Vite env (browser)
     if (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_KEY) {
       return (import.meta as any).env.VITE_API_KEY;
     }
-    // Vite env (server)
     if (typeof import.meta !== "undefined" && (import.meta as any).env?.API_KEY) {
       return (import.meta as any).env.API_KEY;
     }
-    // Node process env
     if (typeof process !== "undefined" && process.env?.API_KEY) {
       return process.env.API_KEY;
     }
@@ -358,8 +272,7 @@ function getAiClient() {
 }
 
 /**
- * Given a date, return the Monday of that week.  Used to align
- * training plans to weeks starting on Monday.
+ * Given a date, return the Monday of that week.
  */
 function getMonday(d: Date): Date {
   const date = new Date(d);
@@ -370,15 +283,12 @@ function getMonday(d: Date): Date {
 }
 
 /**
- * Safely parse a JSON string.  If parsing fails due to trailing
- * characters or extra text, attempt to isolate the first valid JSON
- * object.  If still failing, propagate the error.
+ * Safely parse a JSON string.
  */
 function safeJsonParse<T>(jsonString: string): T {
   try {
     return JSON.parse(jsonString) as T;
   } catch (_) {
-    // Attempt to extract the first {...} block
     const firstBrace = jsonString.indexOf("{");
     const lastBrace = jsonString.lastIndexOf("}");
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -390,18 +300,21 @@ function safeJsonParse<T>(jsonString: string): T {
 }
 
 /**
- * Validates and corrects the plan dates and phase labels.
- * Enforces strict calendar alignment and SARC naming conventions.
+ * Validates and AUTO-CORRECTS the plan dates and phase labels.
+ * NEVER throws errors for date mismatches; always corrects them.
  */
 function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, maintenanceWeeks: number): DetailedTrainingPlan {
     const raceDate = new Date(raceDateStr);
+    raceDate.setHours(0,0,0,0);
     const planWeeks = plan.plan;
 
     if (!planWeeks || planWeeks.length === 0) throw new Error("Le plan généré est vide.");
 
     // 1. Recalculate dates for the whole plan from the calculated startDate
-    // This ensures mathematical consistency: dates must be continuous from the start.
     const anchorStart = new Date(plan.startDate);
+    const dayMap: {[key: string]: number} = {
+        "Lundi": 0, "Mardi": 1, "Mercredi": 2, "Jeudi": 3, "Vendredi": 4, "Samedi": 5, "Dimanche": 6
+    };
     
     planWeeks.forEach((week, index) => {
         const weekStart = new Date(anchorStart);
@@ -412,12 +325,7 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
         week.startDate = weekStart.toISOString().split('T')[0];
         week.endDate = weekEnd.toISOString().split('T')[0];
         
-        // Update session dates based on the day of the week
-        const dayMap: {[key: string]: number} = {
-            "Lundi": 0, "Mardi": 1, "Mercredi": 2, "Jeudi": 3, "Vendredi": 4, "Samedi": 5, "Dimanche": 6
-        };
         week.jours.forEach((day) => {
-             // Normalize day string to handle potential AI casing issues
              const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
              if (dayMap.hasOwnProperty(dayName)) {
                  const sessionDate = new Date(weekStart);
@@ -427,87 +335,83 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
         });
     });
 
-// Préparation pour la vérification finale
-let finalWeek = planWeeks[planWeeks.length - 1];  // <-- remplacé par LET
-let fStart = new Date(finalWeek.startDate);
-let fEnd = new Date(finalWeek.endDate);
+    // 2. AUTO-CORRECTION: Guarantee Last Week is Race Week
+    let lastWeek = planWeeks[planWeeks.length - 1];
+    const fEnd = new Date(lastWeek.endDate);
+    fEnd.setHours(0,0,0,0);
 
-// Normaliser pour comparaison
-const rDate = new Date(raceDateStr);
-rDate.setHours(0,0,0,0);
-// Réassigner finalWeek pour les étapes suivantes + recalcul
-finalWeek = planWeeks[planWeeks.length - 1];
-fStart = new Date(finalWeek.startDate);
-fEnd = new Date(finalWeek.endDate);
-fStart.setHours(0,0,0,0);
-fEnd.setHours(0,0,0,0);
+    const raceWeekMonday = getMonday(raceDate);
+    const raceWeekSunday = new Date(raceWeekMonday);
+    raceWeekSunday.setDate(raceWeekMonday.getDate() + 6);
 
-    // Correction automatique si la raceDate n'est pas dans la dernière semaine
-const raceInsideFinalWeek = rDate >= fStart && rDate <= fEnd;
+    if (raceDate > fEnd) {
+        // Race is AFTER the current plan: Append a new week
+        const newWeek = JSON.parse(JSON.stringify(lastWeek)); // Clone last week structure
+        newWeek.semaine = lastWeek.semaine + 1;
+        newWeek.startDate = raceWeekMonday.toISOString().split('T')[0];
+        newWeek.endDate = raceWeekSunday.toISOString().split('T')[0];
+        newWeek.phase = "SEMAINE DE COURSE";
+        
+        // Adjust dates inside new week
+        newWeek.jours.forEach((day: any) => {
+             const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
+             if (dayMap.hasOwnProperty(dayName)) {
+                 const sessionDate = new Date(raceWeekMonday);
+                 sessionDate.setDate(raceWeekMonday.getDate() + dayMap[dayName]);
+                 day.date = sessionDate.toISOString().split('T')[0];
+             }
+        });
+        
+        planWeeks.push(newWeek);
+        lastWeek = newWeek;
+    } else {
+        // Race is BEFORE or MISALIGNED: Force last week to match race week
+        lastWeek.startDate = raceWeekMonday.toISOString().split('T')[0];
+        lastWeek.endDate = raceWeekSunday.toISOString().split('T')[0];
+        
+        // Re-align session dates in the final week
+        lastWeek.jours.forEach((day) => {
+             const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
+             if (dayMap.hasOwnProperty(dayName)) {
+                 const sessionDate = new Date(raceWeekMonday);
+                 sessionDate.setDate(raceWeekMonday.getDate() + dayMap[dayName]);
+                 day.date = sessionDate.toISOString().split('T')[0];
+             }
+        });
+    }
 
-if (!raceInsideFinalWeek) {
-    // Créer une nouvelle semaine finale contenant la date de course
-    const correctedStart = new Date(rDate);
-    correctedStart.setDate(rDate.getDate() - correctedStart.getDay() + 1); // Lundi
+    // 3. Mark "DÉBUT PRÉPARATION SPÉCIFIQUE" & Phases
+    // "MAINTIEN" for weeks before maintenanceWeeks
+    for (let i = 0; i < maintenanceWeeks; i++) {
+        if (planWeeks[i]) planWeeks[i].phase = "MAINTIEN";
+    }
 
-    const correctedEnd = new Date(correctedStart);
-    correctedEnd.setDate(correctedStart.getDate() + 6);
-
-    planWeeks.push({
-      semaine: planWeeks.length + 1,
-      phase: "SEMAINE DE COURSE",
-      startDate: correctedStart.toISOString().split("T")[0],
-      endDate: correctedEnd.toISOString().split("T")[0],
-      volumeTotal: 0,
-      repartition: { ef: 100, intensite: 0 },
-      resume: "Semaine de course incluant la date d’objectif.",
-      jours: [
-        {
-          jour: "Dimanche",
-          date: raceDateStr,
-          type: "Course",
-          contenu: "Jour de course — Objectif final.",
-          warmup: "5 min EF",
-          mainBlock: "Course",
-          cooldown: "Libre",
-          objectif: "Atteindre l’objectif de course",
-          volume: 0,
-          allure: "",
-          frequenceCardiaque: "",
-          rpe: "",
-        },
-      ],
-    });
-
-    // Réassigner finalWeek pour les étapes suivantes
-    finalWeek = planWeeks[planWeeks.length - 1];
-}
-
-
-    // 3. Mark "DÉBUT PRÉPARATION SPÉCIFIQUE"
-    // Maintenance weeks are at index 0 to maintenanceWeeks-1.
-    // The specific prep starts at index `maintenanceWeeks`.
+    // "DÉBUT PRÉPARATION SPÉCIFIQUE" for the first week of the specific block
     if (maintenanceWeeks < planWeeks.length) {
         planWeeks[maintenanceWeeks].phase = "DÉBUT PRÉPARATION SPÉCIFIQUE";
+        (planWeeks[maintenanceWeeks] as any).isPreparationStart = true;
     }
 
-    // 4. Ensure other labels are clean and correct
-    // Maintenance phases
-    for (let i = 0; i < maintenanceWeeks; i++) {
-        planWeeks[i].phase = "MAINTIEN";
-    }
-    
-    // Last week label
+    // "SEMAINE DE COURSE" for the last week
     planWeeks[planWeeks.length - 1].phase = "SEMAINE DE COURSE";
 
-    // Penultimate week (Affûtage) if applicable and strictly needed
+    // "AFFÛTAGE" for penultimate week, if applicable
     if (planWeeks.length > 1) {
-        // If not already explicitly marked as taper, enforce it for consistency
-        const penultimate = planWeeks[planWeeks.length - 2];
-        if (!penultimate.phase.toUpperCase().includes("AFFÛTAGE")) {
-             penultimate.phase = "AFFÛTAGE";
+        planWeeks[planWeeks.length - 2].phase = "AFFÛTAGE";
+    }
+
+    // Handle middle weeks
+    for (let i = maintenanceWeeks + 1; i < planWeeks.length - 2; i++) {
+        const p = planWeeks[i].phase.toUpperCase();
+        if (p.includes("ASSIMILATION") || p.includes("RÉCUPÉRATION") || p.includes("REPOS")) {
+            planWeeks[i].phase = "PRÉPARATION SPÉCIFIQUE — ASSIMILATION";
+        } else {
+            planWeeks[i].phase = "PRÉPARATION SPÉCIFIQUE";
         }
     }
+
+    // 4. Update overall plan metadata
+    plan.endDate = planWeeks[planWeeks.length - 1].endDate;
 
     return plan;
 }
@@ -516,12 +420,6 @@ if (!raceInsideFinalWeek) {
  * ---------------------------------------------------------------
  *  Prompt Builder
  * ---------------------------------------------------------------
- *
- * Build the user prompt given the form data and computed dates.
- * This function does not include the system rules or the training
- * knowledge; those are passed via the systemInstruction to the
- * Gemini API.  Keeping the prompt builder separate makes it easy
- * to adjust the phrasing without touching the core logic.
  */
 function buildPrompt(formData: FormData, planStart: Date, totalWeeks: number, maintenanceWeeks: number, specificContext: string): string {
   const startDateIso = planStart.toISOString().split("T")[0];
@@ -551,48 +449,35 @@ Respect strict de la Bible.
  * ---------------------------------------------------------------
  */
 
-/**
- * Generate a detailed training plan.  This function handles date
- * computation, prompt construction, repeated attempts and safe
- * JSON parsing.  It respects the useThinkingMode flag to choose
- * between the pro and flash models.
- */
 export async function generateDetailedTrainingPlan(
   formData: FormData,
   useThinkingMode: boolean
 ): Promise<DetailedTrainingPlan> {
   const ai = getAiClient();
 
-  // Date calculations
   const today = new Date();
   const targetDate = new Date(formData.targetDate);
   const planStartDate = getMonday(today);
   const totalWeeks = Math.ceil((targetDate.getTime() - planStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
   if (totalWeeks < 1) throw new Error("La date d'objectif est trop proche.");
 
-  // Determine maintenance weeks before the specific block
   const maintenanceWeeks = Math.max(0, totalWeeks - formData.duration);
 
-  // Determine specific context string
   const specificContext = formData.objective === Objective.TRAIL_SHORT && formData.trailShortDetails
     ? `Trail court ${formData.trailShortDetails.distance}km D+${formData.trailShortDetails.elevationGain}`
     : formData.objective === Objective.ULTRA_DISTANCE && formData.ultraDetails
     ? `Ultra ${formData.ultraDetails.distance}km D+${formData.ultraDetails.elevationGain}`
     : `Objectif ${formData.targetTime}`;
 
-  // Build the user prompt
   const userPrompt = buildPrompt(formData, planStartDate, totalWeeks, maintenanceWeeks, specificContext);
 
-  // Prepare the system instructions by injecting the training knowledge
   const systemRules = SYSTEM_RULES_TEMPLATE.replace(
     "%%TRAINING_KNOWLEDGE%%",
     JSON.stringify(trainingKnowledge, null, 2)
   );
 
-  // Choose model
   const modelName = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
 
-  // Configuration for the request
   const config: any = {
     temperature: 0.7,
     responseMimeType: "application/json",
@@ -670,7 +555,6 @@ export async function generateDetailedTrainingPlan(
     config.thinkingConfig = { thinkingBudget: 4096 };
   }
 
-  // Attempt to generate the plan twice if necessary
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await ai.models.generateContent({
@@ -688,8 +572,17 @@ export async function generateDetailedTrainingPlan(
       
       const parsedPlan = safeJsonParse<DetailedTrainingPlan>(jsonText);
       
-      // Perform strict validation and auto-correction
-      return validatePlanDates(parsedPlan, formData.targetDate, maintenanceWeeks);
+      // 1. Correct the plan dates FIRST
+      const correctedPlan = validatePlanDates(parsedPlan, formData.targetDate, maintenanceWeeks);
+
+      // 2. AUTO-SAVE: If user is logged in, save the corrected plan immediately
+      const user = getCurrentUser();
+      if (user) {
+        savePlanForUser(user.id, correctedPlan, formData);
+      }
+
+      // 3. Return the corrected plan
+      return correctedPlan;
 
     } catch (err) {
       console.error("Erreur génération:", err);
@@ -699,15 +592,8 @@ export async function generateDetailedTrainingPlan(
   throw new Error("Échec génération");
 }
 
-/**
- * Given a saved plan and feedback on completed sessions, ask Gemini
- * to suggest optimisations.  The suggestions returned are parsed
- * directly from JSON.
- */
 export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<OptimizationSuggestion[]> {
   const ai = getAiClient();
-
-  // Format feedback for the model: list completed sessions with RPE
   const feedbackLines: string[] = [];
   plan.plan.plan.forEach((week, weekIndex) => {
     week.jours.forEach((session, sessionIndex) => {
@@ -720,7 +606,6 @@ export async function getPlanOptimizationSuggestions(plan: SavedPlan): Promise<O
   });
   const formattedFeedback = feedbackLines.length > 0 ? feedbackLines.join("\n") : "Aucun retour.";
 
-  // Construct prompt
   const prompt = `
 Optimise ce plan d'entraînement en te basant sur le niveau ${plan.userProfile.level}.
 Commentaires de l'athlète :
@@ -761,11 +646,6 @@ Ton objectif est de proposer des améliorations concrètes (sans changer l'objec
   }
 }
 
-/**
- * Generate a chat response.  This function simply forwards the
- * chat history and new message to Gemini with a minimal system
- * instruction instructing it to answer in French as Coach SARC.
- */
 export async function generateChatResponse(
   history: ChatMessage[],
   newMessage: string,
@@ -786,10 +666,6 @@ export async function generateChatResponse(
   });
 }
 
-/**
- * Suggest a modification for a given session based on a natural
- * language query.  The answer is returned as plain text.
- */
 export async function getSessionSuggestion(
   session: DetailedSession,
   userQuery: string

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { User, SavedPlan, DetailedTrainingPlan, FormData, CompletionStatus } from '../types';
-import { getPlansForUser, savePlanForUser, updatePlanCompletion, deletePlan, deleteAllPlansForUser } from '../services/planService';
+import { getPlansForUser, updatePlanCompletion, deletePlan, deleteAllPlansForUser } from '../services/planService';
 import GeneratorPage from './GeneratorPage';
 import TrainingPlanDisplay from './TrainingPlanDisplay';
 import ConfirmationModal from './ConfirmationModal';
@@ -38,18 +38,18 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ user }) => {
         setIsLoading(true);
         const userPlans = getPlansForUser(user.id);
         setPlans(userPlans);
-        // If there's no active plan selected yet, or the current active plan is deleted/not found, select the most recent one
-        if (!activePlan || !userPlans.find(p => p.id === activePlan.id)) {
-            const currentActivePlan = userPlans.find(p => p.isActive) || userPlans[0] || null;
-            setActivePlan(currentActivePlan);
-        }
+        
+        // Find the plan marked as active by the service
+        const currentActivePlan = userPlans.find(p => p.isActive) || null;
+        setActivePlan(currentActivePlan);
+        
         setIsLoading(false);
     };
 
     const handlePlanGenerated = (planData: DetailedTrainingPlan, formData: FormData) => {
-        const newPlan = savePlanForUser(user.id, planData, formData);
+        // The plan has already been saved by geminiService.
+        // We just need to reload the plans from storage to get the new SavedPlan (with ID).
         loadPlans();
-        setActivePlan(newPlan);
         setView('calendar');
     };
 

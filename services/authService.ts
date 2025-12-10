@@ -19,7 +19,7 @@ const saveUsers = (users: Record<string, User>) => {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
 };
 
-export const signup = (email: string, name: string, password: string):User | null => {
+export const signup = (email: string, name: string, password: string): User | null => {
     const users = getUsers();
     if (users[email]) {
         throw new Error("Un compte existe déjà avec cet email.");
@@ -30,19 +30,20 @@ export const signup = (email: string, name: string, password: string):User | nul
         name,
     };
     // In a real app, we would store a hashed password.
-    // Here we just store the user object.
     users[email] = newUser;
     saveUsers(users);
-    // Also log them in
+    
+    // Auto login after signup
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
     return newUser;
 };
 
-export const login = (email: string, password: string):User | null => {
+export const login = (email: string, password: string): User | null => {
     const users = getUsers();
     const user = users[email];
+    
     // In a real app, we would compare hashed passwords.
-    // For this simulation, we just check if the user exists.
+    // For this mock, if user exists, we allow login.
     if (user) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
         return user;

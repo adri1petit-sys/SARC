@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress, CurrentVolume } from '../types';
 import type { FormData, DetailedTrainingPlan, UltraDetails, TrailShortDetails } from '../types';
