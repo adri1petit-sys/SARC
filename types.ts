@@ -73,9 +73,9 @@ export interface TrailShortDetails {
 
 export interface FormData {
     gender: Gender;
-    age: number;
-    weight: number;
-    height: number;
+    age: number | "";
+    weight: number | "";
+    height: number | "";
     level: Level;
     runningHistory: RunningHistory;
     currentVolume: CurrentVolume;

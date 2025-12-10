@@ -52,7 +52,7 @@ const HeroSection: React.FC<{ onAuthRequest: () => void }> = ({ onAuthRequest })
                     <WhatsAppIcon /> Rejoindre WhatsApp
                 </a>
                 <button onClick={onAuthRequest} className="px-6 py-3 text-lg font-semibold text-black rounded-full bg-[#FF38B1] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#FF38B1]/50 glow-shadow-pink-hover">
-                    Programme Perso IA
+                    Programme Perso
                 </button>
                  <a href="https://www.facebook.com/groups/481948624640982/" target="_blank" rel="noopener noreferrer" className="px-6 py-3 text-lg font-semibold text-white rounded-full bg-blue-600/80 backdrop-blur-sm border border-white/20 transition-all duration-300 ease-in-out hover:bg-blue-600 flex items-center gap-2">
                     <FacebookIcon /> Facebook

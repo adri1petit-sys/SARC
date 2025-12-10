@@ -3,6 +3,22 @@ import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress, CurrentV
 import type { FormData, DetailedTrainingPlan, UltraDetails, TrailShortDetails } from '../types';
 import { generateDetailedTrainingPlan } from '../services/geminiService';
 
+// --- HELPERS POUR LES ALLURES ---
+const formatPaceTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+// Génère les options de 4:00 à 8:00 par pas de 15s
+const PACE_OPTIONS = Array.from({ length: 16 }, (_, i) => {
+    const startSec = 240 + (i * 15); // Début à 4:00 (240s)
+    const endSec = startSec + 15;
+    const label = `${formatPaceTime(startSec)}-${formatPaceTime(endSec)}/km`;
+    const value = `${formatPaceTime(startSec)}-${formatPaceTime(endSec)}`;
+    return { value, label };
+});
+
 const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({ currentStep, totalSteps }) => (
     <div className="w-full bg-gray-700/50 rounded-full h-2.5 mb-8 relative overflow-hidden">
         <div className="bg-[#00AFED] h-2.5 rounded-full transition-all duration-500" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
@@ -41,20 +57,23 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState<FormData>({
         // Step 1
-        gender: Gender.MALE, age: 30, weight: 75, height: 180,
+        gender: Gender.MALE, 
+        age: "", 
+        weight: "", 
+        height: "",
         // Step 2
         level: Level.INTERMEDIATE,
         runningHistory: RunningHistory.ONE_TO_THREE_YEARS,
         currentVolume: CurrentVolume.TWENTY_TO_FORTY, // Default
         // Step 3
         pb5k: '', pb10k: '', pbSemi: '', pbMarathon: '',
-        currentPaceEF: '6:00/km',
+        currentPaceEF: '', // Changé de '6:00/km' à vide pour forcer la sélection
         // Step 4
         objective: Objective.TEN_K,
         ultraDetails: undefined,
         trailShortDetails: undefined,
         // Step 5
-        targetTime: "45 minutes",
+        targetTime: "", // Initialisé à vide pour forcer la saisie
         // Step 6: Date
         targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 3 months out
         // Step 7
@@ -99,6 +118,30 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             setFormData(prev => ({ ...prev, ultraDetails: undefined, trailShortDetails: undefined }));
         }
     }, [isUltra, isTrailShort, ultraForm, trailShortForm]);
+
+    // Validation logic for current step
+    const isStepValid = () => {
+        if (step === 1) {
+            const isAgeValid = formData.age !== "" && Number(formData.age) > 0;
+            const isWeightValid = formData.weight !== "" && Number(formData.weight) > 0;
+            const isHeightValid = formData.height !== "" && Number(formData.height) > 0;
+            return isAgeValid && isWeightValid && isHeightValid;
+        }
+        if (step === 3) {
+            return formData.currentPaceEF !== "";
+        }
+        if (step === 5) {
+            if (isUltra) {
+                return ultraForm.distance !== "" && ultraForm.elevationGain !== "";
+            }
+            if (isTrailShort) {
+                return trailShortForm.distance !== "" && trailShortForm.elevationGain !== "";
+            }
+            // Standard target time validation
+            return formData.targetTime.trim() !== "";
+        }
+        return true;
+    };
 
     const handleGenerate = async () => {
         setIsGenerating(true);
@@ -223,15 +266,33 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Âge</label>
-                            <input type="number" value={formData.age} onChange={e => setFormData(f => ({...f, age: +e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"/>
+                            <input 
+                                type="number" 
+                                value={formData.age} 
+                                onChange={e => setFormData(f => ({...f, age: e.target.value === "" ? "" : parseFloat(e.target.value)}))} 
+                                placeholder="30"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            />
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Poids (kg)</label>
-                            <input type="number" value={formData.weight} onChange={e => setFormData(f => ({...f, weight: +e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"/>
+                            <input 
+                                type="number" 
+                                value={formData.weight} 
+                                onChange={e => setFormData(f => ({...f, weight: e.target.value === "" ? "" : parseFloat(e.target.value)}))} 
+                                placeholder="70"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            />
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Taille (cm)</label>
-                            <input type="number" value={formData.height} onChange={e => setFormData(f => ({...f, height: +e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"/>
+                            <input 
+                                type="number" 
+                                value={formData.height} 
+                                onChange={e => setFormData(f => ({...f, height: e.target.value === "" ? "" : parseFloat(e.target.value)}))} 
+                                placeholder="175"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            />
                         </div>
                     </div>
                 </div>
@@ -265,7 +326,18 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div>
                             <label className="block mb-2 text-base text-gray-300">Allure EF actuelle</label>
-                            <input type="text" value={formData.currentPaceEF} onChange={e => setFormData(f => ({...f, currentPaceEF: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 6:15/km"/>
+                            <select
+                                value={formData.currentPaceEF}
+                                onChange={e => setFormData(f => ({...f, currentPaceEF: e.target.value}))}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            >
+                                <option value="" disabled hidden>Sélectionner votre allure EF</option>
+                                {PACE_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value} className="bg-[#0B1226] text-gray-200">
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">PB 10 km</label>
@@ -352,7 +424,13 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 return (
                     <div className="animate-fade-in">
                         <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏆 Temps visé</h2>
-                        <input type="text" value={formData.targetTime} onChange={e => setFormData(f => ({...f, targetTime: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-lg outline-none focus:ring-2 focus:ring-[#00AFED] text-center"/>
+                        <input 
+                            type="text" 
+                            value={formData.targetTime} 
+                            onChange={e => setFormData(f => ({...f, targetTime: e.target.value}))} 
+                            placeholder="Ex : 45 minutes"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-lg outline-none focus:ring-2 focus:ring-[#00AFED] text-center"
+                        />
                     </div>
                 )
             }
@@ -434,7 +512,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 <div className="flex justify-between items-center mt-12">
                      <button onClick={() => step === 1 ? onCancel() : setStep(s => s - 1)} className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors">{step === 1 ? 'Annuler' : 'Précédent'}</button>
                     {step < 9 ? (
-                        <GlowButton onClick={() => setStep(s => s + 1)}>Suivant</GlowButton>
+                        <GlowButton onClick={() => setStep(s => s + 1)} disabled={!isStepValid()}>Suivant</GlowButton>
                     ) : (
                         <GlowButton onClick={handleGenerate}>Générer mon plan expert</GlowButton>
                     )}
