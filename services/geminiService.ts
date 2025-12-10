@@ -427,6 +427,17 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
         });
     });
 
+// Préparation pour la vérification finale
+const finalWeek = planWeeks[planWeeks.length - 1];
+const fStart = new Date(finalWeek.startDate);
+const fEnd = new Date(finalWeek.endDate);
+
+// Normaliser pour comparaison
+const rDate = new Date(raceDateStr);
+rDate.setHours(0,0,0,0);
+fStart.setHours(0,0,0,0);
+fEnd.setHours(0,0,0,0);
+
     // Correction automatique si la raceDate n'est pas dans la dernière semaine
 const raceInsideFinalWeek = rDate >= fStart && rDate <= fEnd;
 
