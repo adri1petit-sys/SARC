@@ -1,3 +1,4 @@
+
 import type { SavedPlan, User, DetailedTrainingPlan, FormData, CompletionStatus } from '../types';
 
 const PLANS_KEY = 'sarc_plans';
@@ -58,3 +59,15 @@ export const getSharedPlan = (planId: string): SavedPlan | null => {
      const allPlans = getAllPlans();
      return allPlans.find(p => p.id === planId) || null;
 }
+
+export const deletePlan = (planId: string) => {
+    let allPlans = getAllPlans();
+    const filteredPlans = allPlans.filter(p => p.id !== planId);
+    saveAllPlans(filteredPlans);
+};
+
+export const deleteAllPlansForUser = (userId: string) => {
+    let allPlans = getAllPlans();
+    const filteredPlans = allPlans.filter(p => p.userId !== userId);
+    saveAllPlans(filteredPlans);
+};
