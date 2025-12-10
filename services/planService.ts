@@ -1,4 +1,3 @@
-
 import type { SavedPlan, DetailedTrainingPlan, FormData, CompletionStatus } from '../types';
 
 const PLANS_KEY = 'sarc_plans_v2';

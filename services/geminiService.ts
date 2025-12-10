@@ -12,24 +12,9 @@ import type {
 } from "../types";
 
 /*
- * This module provides a single entry point for interacting with the
- * Gemini API to build, optimise and chat about training plans.  It
- * encapsulates all of the domain knowledge defined in
- * training_knowledge.json and exposes a small set of functions to
- * generate and refine programmes.  The implementation has been
- * designed to be easy to read and maintain: logic is broken down
- * into clear sections (knowledge import, rules definition, prompt
- * construction, API invocation and response handling).
- */
-
-/*
  * ---------------------------------------------------------------
  *  Training Knowledge (Inlined)
  * ---------------------------------------------------------------
- *
- * The training knowledge encapsulates the distilled scientific
- * information for each supported discipline. It is inlined here
- * to avoid module resolution issues in browser environments.
  */
 const trainingKnowledge = {
   "philosophy": "SARC Training Methodology: Scientific, Progressive, Personalized.",
@@ -59,16 +44,6 @@ const trainingKnowledge = {
  * ---------------------------------------------------------------
  *  System Rules
  * ---------------------------------------------------------------
- *
- * The systemRules string below governs how the generative model
- * constructs training plans.  It combines strict structural
- * constraints (warm‑up, main block, cool‑down), progressive
- * overload guidance, session scheduling restrictions, and
- * personalisation rules based on level and current training volume.
- *
- * The placeholder %%TRAINING_KNOWLEDGE%% is replaced at runtime
- * with the JSON representation of the training knowledge so that
- * the model always has access to the latest science.
  */
 const SYSTEM_RULES_TEMPLATE = `
 Tu es COACH SARC, entraîneur expert en planification d’endurance.
@@ -272,13 +247,16 @@ function getAiClient() {
 
 /**
  * Given a date, return the Monday of that week.
+ * This guarantees that weeks start on Monday (ISO-like week start).
  */
 function getMonday(d: Date): Date {
   const date = new Date(d);
   const day = date.getDay();
-  // Sunday (0) should map to previous Monday (day 1).
+  // Sunday (0) -> -6 days, Monday (1) -> 0 days, etc.
   const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(date.setDate(diff));
+  const monday = new Date(date.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 
 /**
@@ -302,39 +280,48 @@ function safeJsonParse<T>(jsonString: string): T {
  * Validates and RECONSTRUCTS the plan dates mathematically.
  * Enforces strict alignment: Week N = Anchor + (N-1)*7.
  * Guarantees Race Date is in the final week.
+ *
+ * THIS FUNCTION IS THE SOURCE OF TRUTH FOR ALL DATES.
  */
 function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, maintenanceWeeks: number): DetailedTrainingPlan {
     const raceDate = new Date(raceDateStr);
     raceDate.setHours(0,0,0,0);
     
-    const planWeeks = plan.plan;
+    let planWeeks = plan.plan;
     if (!planWeeks || planWeeks.length === 0) throw new Error("Le plan généré est vide.");
 
-    // 1. ANCHOR START DATE (Force Monday)
-    // We trust plan.startDate passed from generation function which is getMonday(today)
-    const anchorStart = new Date(plan.startDate);
-    // Ensure anchor is truly Monday
-    const day = anchorStart.getDay();
-    const diff = anchorStart.getDate() - day + (day === 0 ? -6 : 1);
-    anchorStart.setDate(diff);
-    anchorStart.setHours(0,0,0,0);
+    // 1. ESTABLISH ANCHOR START DATE (Monday of current week)
+    // We trust plan.startDate as the reference Monday.
+    // If not valid, we fallback to today's Monday.
+    let anchorStart: Date;
+    if (plan.startDate) {
+        anchorStart = getMonday(new Date(plan.startDate));
+    } else {
+        anchorStart = getMonday(new Date());
+    }
+    
+    // Update plan start date to be perfectly aligned
+    plan.startDate = anchorStart.toISOString().split('T')[0];
 
     const dayMap: {[key: string]: number} = {
         "Lundi": 0, "Mardi": 1, "Mercredi": 2, "Jeudi": 3, "Vendredi": 4, "Samedi": 5, "Dimanche": 6
     };
 
     // 2. MATHEMATICAL RECONSTRUCTION OF EXISTING WEEKS
-    // Overwrite any date provided by AI with calculated dates.
+    // Overwrite any date provided by AI with strictly calculated dates.
     planWeeks.forEach((week, index) => {
+        // Calculate Week Start (Monday)
         const weekStart = new Date(anchorStart);
         weekStart.setDate(anchorStart.getDate() + (index * 7));
         
+        // Calculate Week End (Sunday)
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
         
         // Force ISO strings
         week.startDate = weekStart.toISOString().split('T')[0];
         week.endDate = weekEnd.toISOString().split('T')[0];
+        week.semaine = index + 1;
         
         // Force Session Dates
         week.jours.forEach((day) => {
@@ -349,21 +336,20 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
     });
 
     // 3. RACE ALIGNMENT CHECK
-    // Determine where the race falls relative to the plan
-    const raceDayOfWeek = raceDate.getDay();
-    const diffRace = raceDate.getDate() - raceDayOfWeek + (raceDayOfWeek === 0 ? -6 : 1);
-    const raceWeekMonday = new Date(raceDate);
-    raceWeekMonday.setDate(diffRace);
-    raceWeekMonday.setHours(0,0,0,0);
+    // Calculate the Monday of the Race Week
+    const raceWeekMonday = getMonday(raceDate);
+    const raceWeekSunday = new Date(raceWeekMonday);
+    raceWeekSunday.setDate(raceWeekMonday.getDate() + 6);
 
     const lastPlanWeek = planWeeks[planWeeks.length - 1];
     const lastPlanWeekStart = new Date(lastPlanWeek.startDate);
     lastPlanWeekStart.setHours(0,0,0,0);
 
-    // If the plan stops BEFORE the race week -> Append weeks
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+
+    // Check misalignment
     if (lastPlanWeekStart.getTime() < raceWeekMonday.getTime()) {
-        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-        // How many weeks to add?
+        // Plan stops BEFORE race week -> Append missing weeks
         const weeksToAdd = Math.round((raceWeekMonday.getTime() - lastPlanWeekStart.getTime()) / msPerWeek);
         const startIndex = planWeeks.length;
         
@@ -374,15 +360,15 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
             const wEnd = new Date(wStart);
             wEnd.setDate(wStart.getDate() + 6);
 
-            // Clone structure from last week but empty it
+            // Clone structure from last week but empty it (Rest Week)
             const newWeek = JSON.parse(JSON.stringify(lastPlanWeek));
             newWeek.semaine = newIndex + 1;
             newWeek.startDate = wStart.toISOString().split('T')[0];
             newWeek.endDate = wEnd.toISOString().split('T')[0];
-            newWeek.phase = "SEMAINE DE COURSE";
+            newWeek.phase = "SEMAINE DE COURSE"; // Will be corrected later if intermediate
             newWeek.volumeTotal = 0;
             
-            // Reset sessions
+            // Reset sessions to Rest
             newWeek.jours.forEach((d: any) => {
                 const offset = dayMap[d.jour] || 0;
                 const sDate = new Date(wStart);
@@ -398,16 +384,18 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
             planWeeks.push(newWeek);
         }
     } 
-    // If the plan goes BEYOND the race week -> Slice it
     else if (lastPlanWeekStart.getTime() > raceWeekMonday.getTime()) {
-        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        // Plan goes BEYOND race week -> Slice it
         const targetIndex = Math.round((raceWeekMonday.getTime() - anchorStart.getTime()) / msPerWeek);
         // Keep up to targetIndex (inclusive)
-        plan.plan = planWeeks.slice(0, targetIndex + 1);
+        if (targetIndex >= 0) {
+            plan.plan = planWeeks.slice(0, targetIndex + 1);
+            planWeeks = plan.plan;
+        }
     }
 
-    // 4. FORCE LABELS & CLEANUP
-    plan.plan.forEach((week, i) => {
+    // 4. FORCE LABELS & PHASES
+    planWeeks.forEach((week, i) => {
         // Maintenance
         if (i < maintenanceWeeks) {
             week.phase = "MAINTIEN";
@@ -418,16 +406,16 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
             (week as any).isPreparationStart = true;
         } 
         // Race Week (Always the last one)
-        else if (i === plan.plan.length - 1) {
+        else if (i === planWeeks.length - 1) {
             week.phase = "SEMAINE DE COURSE";
         } 
         // Taper
-        else if (i === plan.plan.length - 2) {
+        else if (i === planWeeks.length - 2) {
             week.phase = "AFFÛTAGE";
         } 
-        // Middle
+        // Middle Weeks
         else {
-            const p = week.phase.toUpperCase();
+            const p = week.phase ? week.phase.toUpperCase() : "";
             if (p.includes("ASSIMILATION") || p.includes("RÉCUPÉRATION") || p.includes("REPOS")) {
                 week.phase = "PRÉPARATION SPÉCIFIQUE — ASSIMILATION";
             } else {
@@ -437,9 +425,12 @@ function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, main
     });
 
     // 5. UPDATE FINAL METADATA
-    if (plan.plan.length > 0) {
-        plan.endDate = plan.plan[plan.plan.length - 1].endDate;
+    if (planWeeks.length > 0) {
+        plan.endDate = planWeeks[planWeeks.length - 1].endDate;
     }
+    
+    // Ensure raceDate in metadata matches input
+    plan.raceDate = raceDateStr;
 
     return plan;
 }
@@ -453,7 +444,8 @@ function buildPrompt(formData: FormData, planStart: Date, totalWeeks: number, ma
   const startDateIso = planStart.toISOString().split("T")[0];
   return `
 Génère un plan complet de ${totalWeeks} semaines.
-La préparation commence le ${startDateIso}. Tu DOIS calculer les dates réelles (YYYY-MM-DD) pour chaque séance en suivant ce calendrier.
+La préparation commence le ${startDateIso}. 
+Tu DOIS générer un JSON valide. Les dates seront recalculées par le système, concentre-toi sur le contenu sportif.
 
 Profil : ${formData.level}.
 Volume actuel : ${formData.currentVolume}.
@@ -466,7 +458,6 @@ Structure :
 - S${maintenanceWeeks + 1} → S${totalWeeks} : Préparation spécifique
 
 Respect strict du schéma JSON.
-Respect strict des dates du calendrier.
 Respect strict de la Bible.
   `;
 }
@@ -486,7 +477,11 @@ export async function generateDetailedTrainingPlan(
   const today = new Date();
   const targetDate = new Date(formData.targetDate);
   const planStartDate = getMonday(today);
-  const totalWeeks = Math.ceil((targetDate.getTime() - planStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  
+  // Calculate approximate weeks needed
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const totalWeeks = Math.ceil((targetDate.getTime() - planStartDate.getTime()) / msPerWeek);
+  
   if (totalWeeks < 1) throw new Error("La date d'objectif est trop proche.");
 
   const maintenanceWeeks = Math.max(0, totalWeeks - formData.duration);
