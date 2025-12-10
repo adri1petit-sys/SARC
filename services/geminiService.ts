@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Objective } from "../types";
 import { savePlanForUser } from "./planService";
@@ -300,118 +299,147 @@ function safeJsonParse<T>(jsonString: string): T {
 }
 
 /**
- * Validates and AUTO-CORRECTS the plan dates and phase labels.
- * NEVER throws errors for date mismatches; always corrects them.
+ * Validates and RECONSTRUCTS the plan dates mathematically.
+ * Enforces strict alignment: Week N = Anchor + (N-1)*7.
+ * Guarantees Race Date is in the final week.
  */
 function validatePlanDates(plan: DetailedTrainingPlan, raceDateStr: string, maintenanceWeeks: number): DetailedTrainingPlan {
     const raceDate = new Date(raceDateStr);
     raceDate.setHours(0,0,0,0);
+    
     const planWeeks = plan.plan;
-
     if (!planWeeks || planWeeks.length === 0) throw new Error("Le plan généré est vide.");
 
-    // 1. Recalculate dates for the whole plan from the calculated startDate
+    // 1. ANCHOR START DATE (Force Monday)
+    // We trust plan.startDate passed from generation function which is getMonday(today)
     const anchorStart = new Date(plan.startDate);
+    // Ensure anchor is truly Monday
+    const day = anchorStart.getDay();
+    const diff = anchorStart.getDate() - day + (day === 0 ? -6 : 1);
+    anchorStart.setDate(diff);
+    anchorStart.setHours(0,0,0,0);
+
     const dayMap: {[key: string]: number} = {
         "Lundi": 0, "Mardi": 1, "Mercredi": 2, "Jeudi": 3, "Vendredi": 4, "Samedi": 5, "Dimanche": 6
     };
-    
+
+    // 2. MATHEMATICAL RECONSTRUCTION OF EXISTING WEEKS
+    // Overwrite any date provided by AI with calculated dates.
     planWeeks.forEach((week, index) => {
         const weekStart = new Date(anchorStart);
         weekStart.setDate(anchorStart.getDate() + (index * 7));
+        
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
         
+        // Force ISO strings
         week.startDate = weekStart.toISOString().split('T')[0];
         week.endDate = weekEnd.toISOString().split('T')[0];
         
+        // Force Session Dates
         week.jours.forEach((day) => {
+             // Normalize day name
              const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
-             if (dayMap.hasOwnProperty(dayName)) {
-                 const sessionDate = new Date(weekStart);
-                 sessionDate.setDate(weekStart.getDate() + dayMap[dayName]);
-                 day.date = sessionDate.toISOString().split('T')[0];
-             }
+             const offset = dayMap.hasOwnProperty(dayName) ? dayMap[dayName] : 0;
+             
+             const sessionDate = new Date(weekStart);
+             sessionDate.setDate(weekStart.getDate() + offset);
+             day.date = sessionDate.toISOString().split('T')[0];
         });
     });
 
-    // 2. AUTO-CORRECTION: Guarantee Last Week is Race Week
-    let lastWeek = planWeeks[planWeeks.length - 1];
-    const fEnd = new Date(lastWeek.endDate);
-    fEnd.setHours(0,0,0,0);
+    // 3. RACE ALIGNMENT CHECK
+    // Determine where the race falls relative to the plan
+    const raceDayOfWeek = raceDate.getDay();
+    const diffRace = raceDate.getDate() - raceDayOfWeek + (raceDayOfWeek === 0 ? -6 : 1);
+    const raceWeekMonday = new Date(raceDate);
+    raceWeekMonday.setDate(diffRace);
+    raceWeekMonday.setHours(0,0,0,0);
 
-    const raceWeekMonday = getMonday(raceDate);
-    const raceWeekSunday = new Date(raceWeekMonday);
-    raceWeekSunday.setDate(raceWeekMonday.getDate() + 6);
+    const lastPlanWeek = planWeeks[planWeeks.length - 1];
+    const lastPlanWeekStart = new Date(lastPlanWeek.startDate);
+    lastPlanWeekStart.setHours(0,0,0,0);
 
-    if (raceDate > fEnd) {
-        // Race is AFTER the current plan: Append a new week
-        const newWeek = JSON.parse(JSON.stringify(lastWeek)); // Clone last week structure
-        newWeek.semaine = lastWeek.semaine + 1;
-        newWeek.startDate = raceWeekMonday.toISOString().split('T')[0];
-        newWeek.endDate = raceWeekSunday.toISOString().split('T')[0];
-        newWeek.phase = "SEMAINE DE COURSE";
+    // If the plan stops BEFORE the race week -> Append weeks
+    if (lastPlanWeekStart.getTime() < raceWeekMonday.getTime()) {
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        // How many weeks to add?
+        const weeksToAdd = Math.round((raceWeekMonday.getTime() - lastPlanWeekStart.getTime()) / msPerWeek);
+        const startIndex = planWeeks.length;
         
-        // Adjust dates inside new week
-        newWeek.jours.forEach((day: any) => {
-             const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
-             if (dayMap.hasOwnProperty(dayName)) {
-                 const sessionDate = new Date(raceWeekMonday);
-                 sessionDate.setDate(raceWeekMonday.getDate() + dayMap[dayName]);
-                 day.date = sessionDate.toISOString().split('T')[0];
-             }
-        });
-        
-        planWeeks.push(newWeek);
-        lastWeek = newWeek;
-    } else {
-        // Race is BEFORE or MISALIGNED: Force last week to match race week
-        lastWeek.startDate = raceWeekMonday.toISOString().split('T')[0];
-        lastWeek.endDate = raceWeekSunday.toISOString().split('T')[0];
-        
-        // Re-align session dates in the final week
-        lastWeek.jours.forEach((day) => {
-             const dayName = day.jour.charAt(0).toUpperCase() + day.jour.slice(1).toLowerCase();
-             if (dayMap.hasOwnProperty(dayName)) {
-                 const sessionDate = new Date(raceWeekMonday);
-                 sessionDate.setDate(raceWeekMonday.getDate() + dayMap[dayName]);
-                 day.date = sessionDate.toISOString().split('T')[0];
-             }
-        });
-    }
+        for (let i = 0; i < weeksToAdd; i++) {
+            const newIndex = startIndex + i;
+            const wStart = new Date(anchorStart);
+            wStart.setDate(anchorStart.getDate() + (newIndex * 7));
+            const wEnd = new Date(wStart);
+            wEnd.setDate(wStart.getDate() + 6);
 
-    // 3. Mark "DÉBUT PRÉPARATION SPÉCIFIQUE" & Phases
-    // "MAINTIEN" for weeks before maintenanceWeeks
-    for (let i = 0; i < maintenanceWeeks; i++) {
-        if (planWeeks[i]) planWeeks[i].phase = "MAINTIEN";
-    }
-
-    // "DÉBUT PRÉPARATION SPÉCIFIQUE" for the first week of the specific block
-    if (maintenanceWeeks < planWeeks.length) {
-        planWeeks[maintenanceWeeks].phase = "DÉBUT PRÉPARATION SPÉCIFIQUE";
-        (planWeeks[maintenanceWeeks] as any).isPreparationStart = true;
-    }
-
-    // "SEMAINE DE COURSE" for the last week
-    planWeeks[planWeeks.length - 1].phase = "SEMAINE DE COURSE";
-
-    // "AFFÛTAGE" for penultimate week, if applicable
-    if (planWeeks.length > 1) {
-        planWeeks[planWeeks.length - 2].phase = "AFFÛTAGE";
-    }
-
-    // Handle middle weeks
-    for (let i = maintenanceWeeks + 1; i < planWeeks.length - 2; i++) {
-        const p = planWeeks[i].phase.toUpperCase();
-        if (p.includes("ASSIMILATION") || p.includes("RÉCUPÉRATION") || p.includes("REPOS")) {
-            planWeeks[i].phase = "PRÉPARATION SPÉCIFIQUE — ASSIMILATION";
-        } else {
-            planWeeks[i].phase = "PRÉPARATION SPÉCIFIQUE";
+            // Clone structure from last week but empty it
+            const newWeek = JSON.parse(JSON.stringify(lastPlanWeek));
+            newWeek.semaine = newIndex + 1;
+            newWeek.startDate = wStart.toISOString().split('T')[0];
+            newWeek.endDate = wEnd.toISOString().split('T')[0];
+            newWeek.phase = "SEMAINE DE COURSE";
+            newWeek.volumeTotal = 0;
+            
+            // Reset sessions
+            newWeek.jours.forEach((d: any) => {
+                const offset = dayMap[d.jour] || 0;
+                const sDate = new Date(wStart);
+                sDate.setDate(wStart.getDate() + offset);
+                d.date = sDate.toISOString().split('T')[0];
+                d.type = "Repos";
+                d.contenu = "Repos ou footing très léger avant course.";
+                d.volume = 0;
+                d.warmup = ""; 
+                d.mainBlock = "";
+                d.cooldown = "";
+            });
+            planWeeks.push(newWeek);
         }
+    } 
+    // If the plan goes BEYOND the race week -> Slice it
+    else if (lastPlanWeekStart.getTime() > raceWeekMonday.getTime()) {
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        const targetIndex = Math.round((raceWeekMonday.getTime() - anchorStart.getTime()) / msPerWeek);
+        // Keep up to targetIndex (inclusive)
+        plan.plan = planWeeks.slice(0, targetIndex + 1);
     }
 
-    // 4. Update overall plan metadata
-    plan.endDate = planWeeks[planWeeks.length - 1].endDate;
+    // 4. FORCE LABELS & CLEANUP
+    plan.plan.forEach((week, i) => {
+        // Maintenance
+        if (i < maintenanceWeeks) {
+            week.phase = "MAINTIEN";
+        } 
+        // Start Specific
+        else if (i === maintenanceWeeks) {
+            week.phase = "DÉBUT PRÉPARATION SPÉCIFIQUE";
+            (week as any).isPreparationStart = true;
+        } 
+        // Race Week (Always the last one)
+        else if (i === plan.plan.length - 1) {
+            week.phase = "SEMAINE DE COURSE";
+        } 
+        // Taper
+        else if (i === plan.plan.length - 2) {
+            week.phase = "AFFÛTAGE";
+        } 
+        // Middle
+        else {
+            const p = week.phase.toUpperCase();
+            if (p.includes("ASSIMILATION") || p.includes("RÉCUPÉRATION") || p.includes("REPOS")) {
+                week.phase = "PRÉPARATION SPÉCIFIQUE — ASSIMILATION";
+            } else {
+                week.phase = "PRÉPARATION SPÉCIFIQUE";
+            }
+        }
+    });
+
+    // 5. UPDATE FINAL METADATA
+    if (plan.plan.length > 0) {
+        plan.endDate = plan.plan[plan.plan.length - 1].endDate;
+    }
 
     return plan;
 }
