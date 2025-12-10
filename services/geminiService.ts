@@ -3,8 +3,7 @@ import type { FormData, DetailedTrainingPlan, SavedPlan, OptimizationSuggestion,
 import { Objective } from '../types';
 
 /* ===========================================================
-   🔥 BIBLE SCIENTIFIQUE SARC — INLINE (Solution A)
-   La constante trainingKnowledge sera ajoutée dans le message suivant.
+   🔥 BIBLE SCIENTIFIQUE SARC — INLINE
 =========================================================== */
 const trainingKnowledge =
 {
@@ -503,12 +502,11 @@ const trainingKnowledge =
 =========================================================== */
 export const getApiKey = (): string | undefined => {
   try {
-    // @ts-ignore
-    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_KEY)
-      return import.meta.env.VITE_API_KEY;
-    // @ts-ignore
-    if (typeof import.meta !== "undefined" && import.meta.env?.API_KEY)
-      return import.meta.env.API_KEY;
+    if (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_KEY)
+      return (import.meta as any).env.VITE_API_KEY;
+
+    if (typeof import.meta !== "undefined" && (import.meta as any).env?.API_KEY)
+      return (import.meta as any).env.API_KEY;
 
     if (typeof process !== "undefined" && process.env?.API_KEY)
       return process.env.API_KEY;
@@ -590,8 +588,8 @@ SI UNE INFO N’EXISTE PAS DANS LA BIBLE :
 → Tu écris : "Non applicable selon Bible".
 
 RÈGLES SARC FIXES :
-- Mercredi : Fractionné Surprise (20' EF + Bloc Surprise + 10' EF)
-- Dimanche : Run Club 10 km @ 6:00/km (Bois des Hâtes)
+- Mercredi : 15' EF - 20' fractionné surprise - 15' EF.
+- Dimanche : Run Club 10 km (6:00/km, Bois des Hâtes, 10h), avec EF avant/après si VL > 10 km.
 - Échauffement + retour au calme = TOUJOURS EF
 - Aucune séance non scientifique
   `;
@@ -599,16 +597,20 @@ RÈGLES SARC FIXES :
   /* USER PROMPT */
   const prompt = `
 Génère un plan complet de ${totalWeeks} semaines.
+La préparation commence le ${planStart.toISOString().split('T')[0]}. Tu DOIS calculer les dates réelles (YYYY-MM-DD) pour chaque séance en suivant ce calendrier.
+
 Profil : ${formData.level}.
 Volume actuel : ${formData.currentVolume}.
+Volume cible : Selon Bible SARC pour niveau ${formData.level}.
 Objectif : ${formData.objective} (${specificContext}).
 Disponibilités : ${formData.availabilityDays.join(", ")}.
 
 Structure :
-- S1 → S${maintenanceWeeks} : Phase maintien
+- S1 → S${maintenanceWeeks} : Phase maintien (Si applicable)
 - S${maintenanceWeeks + 1} → S${totalWeeks} : Préparation spécifique
 
 Respect strict du schéma JSON.
+Respect strict des dates du calendrier.
 Respect strict de la Bible.
   `;
 
@@ -617,7 +619,70 @@ Respect strict de la Bible.
   const config: any = {
     temperature: 0.7,
     responseMimeType: "application/json",
-    responseSchema: { /* ... inchangé ... */ }
+    responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+            startDate: { type: Type.STRING },
+            endDate: { type: Type.STRING },
+            raceDate: { type: Type.STRING },
+            maintenanceWeeks: { type: Type.NUMBER },
+            plan: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        semaine: { type: Type.INTEGER },
+                        phase: { type: Type.STRING },
+                        startDate: { type: Type.STRING },
+                        endDate: { type: Type.STRING },
+                        jours: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    jour: { type: Type.STRING },
+                                    date: { type: Type.STRING },
+                                    type: { type: Type.STRING },
+                                    contenu: { type: Type.STRING },
+                                    warmup: { type: Type.STRING },
+                                    mainBlock: { type: Type.STRING },
+                                    cooldown: { type: Type.STRING },
+                                    objectif: { type: Type.STRING },
+                                    volume: { type: Type.NUMBER },
+                                    allure: { type: Type.STRING },
+                                    frequenceCardiaque: { type: Type.STRING },
+                                    rpe: { type: Type.STRING },
+                                },
+                                required: ["jour", "date", "type", "contenu", "objectif", "volume", "warmup", "mainBlock", "cooldown"],
+                            },
+                        },
+                        volumeTotal: { type: Type.NUMBER },
+                        repartition: {
+                            type: Type.OBJECT,
+                            properties: { ef: { type: Type.NUMBER }, intensite: { type: Type.NUMBER } },
+                            required: ["ef", "intensite"]
+                        },
+                        resume: { type: Type.STRING },
+                    },
+                    required: ["semaine", "phase", "startDate", "endDate", "jours", "volumeTotal", "resume", "repartition"],
+                },
+            },
+            alluresReference: {
+              type: Type.OBJECT,
+              properties: {
+                ef: { type: Type.STRING },
+                seuil: { type: Type.STRING },
+                as10: { type: Type.STRING },
+                as21: { type: Type.STRING },
+                as42: { type: Type.STRING },
+                vma: { type: Type.STRING },
+              },
+              required: ["ef", "seuil", "as10", "as21", "as42", "vma"]
+            },
+            coachNotes: { type: Type.STRING }
+        },
+        required: ["plan", "alluresReference", "startDate", "endDate", "raceDate"],
+    },
   };
 
   if (useThinkingMode) {
@@ -629,8 +694,20 @@ Respect strict de la Bible.
       const res = await ai.models.generateContent({
         model,
         contents: [
-          { role: "system", parts: [{ text: systemInstruction.replace("%%TRAINING_KNOWLEDGE%%", JSON.stringify(trainingKnowledge, null, 2)) }] },
-          { role: "user", parts: [{ text: prompt }] }
+          {
+            role: "user",
+            parts: [
+              {
+                text:
+                  systemInstruction.replace(
+                    "%%TRAINING_KNOWLEDGE%%",
+                    JSON.stringify(trainingKnowledge, null, 2)
+                  ) +
+                  "\n\n" +
+                  prompt
+              }
+            ]
+          }
         ],
         config
       });
