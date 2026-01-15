@@ -1,8 +1,3 @@
-export interface User {
-    id: string;
-    email: string;
-    name: string;
-}
 
 export enum Gender {
     MALE = "Homme",
@@ -72,10 +67,19 @@ export interface TrailShortDetails {
 }
 
 export interface FormData {
+    // Identité (Nouvelle étape finale)
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+
+    // Physio
     gender: Gender;
     age: number | "";
     weight: number | "";
     height: number | "";
+    
+    // Profil
     level: Level;
     runningHistory: RunningHistory;
     currentVolume: CurrentVolume;
@@ -84,6 +88,8 @@ export interface FormData {
     pbSemi: string;
     pbMarathon: string;
     currentPaceEF: string;
+    
+    // Objectif
     objective: Objective;
     ultraDetails?: UltraDetails;
     trailShortDetails?: TrailShortDetails;
@@ -91,94 +97,9 @@ export interface FormData {
     targetDate: string; // YYYY-MM-DD
     availabilityDays: string[];
     duration: number; // Durée de la prépa spécifique
+    
+    // Contexte
     terrain: Terrain;
     lifeStress: LifeStress;
     notes: string;
-}
-
-export interface DetailedSession {
-    jour: string; // Lundi, Mardi...
-    date: string; // YYYY-MM-DD
-    type: string;
-    contenu: string; // Texte structuré complet (Échauffement, Bloc, Retour au calme)
-    objectif: string;
-    volume: number;
-    allure: string;
-    frequenceCardiaque: string;
-    rpe: string;
-    // Nouveaux champs pour structure détaillée
-    warmup?: string;
-    mainBlock?: string;
-    cooldown?: string;
-}
-
-export interface DetailedTrainingPlan {
-    startDate: string;
-    endDate: string;
-    raceDate: string;
-    maintenanceWeeks: number;
-    plan: {
-        semaine: number;
-        phase: string; // "Maintien", "Développement", "Spécifique", "Affûtage", "Compétition"
-        startDate: string;
-        endDate: string;
-        jours: DetailedSession[];
-        volumeTotal: number;
-        repartition: {
-            ef: number;
-            intensite: number;
-        };
-        resume: string;
-    }[];
-    alluresReference: {
-        ef: string;
-        seuil: string;
-        as10: string;
-        as21: string;
-        as42: string;
-        vma: string;
-    };
-    coachNotes?: string;
-}
-
-export interface SessionFeedback {
-    completed: boolean;
-    rpe?: number;
-    notes?: string;
-}
-
-export interface CompletionStatus {
-    [key: string]: SessionFeedback;
-}
-
-export interface SavedPlan {
-    id: string;
-    userId: string;
-    plan: DetailedTrainingPlan;
-    userProfile: FormData;
-    createdAt: string;
-    isActive: boolean;
-    completionStatus: CompletionStatus;
-}
-
-export interface OptimizationSuggestion {
-    title: string;
-    suggestion: string;
-    reasoning: string;
-}
-
-export interface GroundingSource {
-    uri: string;
-    title: string;
-}
-
-export interface ChatMessagePart {
-    text: string;
-}
-
-export interface ChatMessage {
-    role: "user" | "model";
-    parts: ChatMessagePart[];
-    sources?: GroundingSource[];
-    isLoading?: boolean;
 }

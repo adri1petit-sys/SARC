@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import LandingPage from './components/LandingPage';
-import GeneratorPage from './components/GeneratorPage';
+import LandingPage from './LandingPage';
+import GeneratorPage from './GeneratorPage';
 
 const Logo = () => (
     <div className="flex items-center justify-center space-x-2 md:space-x-3">
@@ -17,6 +17,7 @@ const Logo = () => (
 );
 
 const App: React.FC = () => {
+    // État simple pour la navigation : soit on est sur la Landing, soit sur le Générateur
     const [currentView, setCurrentView] = useState<'landing' | 'generator'>('landing');
 
     const renderPage = () => {
@@ -34,7 +35,7 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col bg-[#0B1226] text-gray-200 antialiased font-sans">
-            {/* Header */}
+            {/* Header fixe simplifié */}
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#0B1226]/90 backdrop-blur-xl border-b border-white/10 no-print transition-all duration-300">
                 <nav className="container mx-auto px-3 sm:px-6 py-4 flex justify-center items-center relative">
                     <div onClick={() => setCurrentView('landing')} className="cursor-pointer transition-opacity hover:opacity-80">
@@ -43,7 +44,7 @@ const App: React.FC = () => {
                 </nav>
             </header>
             
-            {/* Contenu */}
+            {/* Contenu Principal avec padding pour le header fixe */}
             <div className="flex-grow flex flex-col pt-24 sm:pt-28 pb-10">
                  {renderPage()}
             </div>

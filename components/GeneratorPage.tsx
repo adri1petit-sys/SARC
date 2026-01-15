@@ -1,19 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Objective, Level, Gender, Terrain, RunningHistory, LifeStress, CurrentVolume } from '../types';
-import type { FormData, DetailedTrainingPlan, UltraDetails, TrailShortDetails } from '../types';
-import { generateDetailedTrainingPlan } from '../services/geminiService';
+import type { FormData, UltraDetails, TrailShortDetails } from '../types';
 
-// --- HELPERS POUR LES ALLURES ---
+// --- HELPERS ---
 const formatPaceTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-// Génère les options de 4:00 à 8:00 par pas de 15s
 const PACE_OPTIONS = Array.from({ length: 16 }, (_, i) => {
-    const startSec = 240 + (i * 15); // Début à 4:00 (240s)
+    const startSec = 240 + (i * 15);
     const endSec = startSec + 15;
     const label = `${formatPaceTime(startSec)}-${formatPaceTime(endSec)}/km`;
     const value = `${formatPaceTime(startSec)}-${formatPaceTime(endSec)}`;
@@ -49,38 +47,43 @@ const OptionCard: React.FC<{ label: string; isSelected: boolean; onClick: () => 
 
 const DAYS_OF_WEEK = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
+// Fonction d'encodage pour Netlify Forms
+const encode = (data: any) => {
+    return Object.keys(data)
+        .map(key => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
+        .join("&");
+};
+
 interface GeneratorPageProps {
-    onPlanGenerated: (plan: DetailedTrainingPlan, formData: FormData) => void;
     onCancel: () => void;
 }
 
-const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel }) => {
+const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
     const [step, setStep] = useState(1);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    
+    // Initialisation avec des valeurs vides
     const [formData, setFormData] = useState<FormData>({
-        // Step 1
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
         gender: Gender.MALE, 
         age: "", 
         weight: "", 
         height: "",
-        // Step 2
-        level: Level.INTERMEDIATE,
-        runningHistory: RunningHistory.ONE_TO_THREE_YEARS,
-        currentVolume: CurrentVolume.TWENTY_TO_FORTY, // Default
-        // Step 3
+        level: "" as any,
+        runningHistory: "" as any,
+        currentVolume: "" as any,
         pb5k: '', pb10k: '', pbSemi: '', pbMarathon: '',
-        currentPaceEF: '', // Changé de '6:00/km' à vide pour forcer la sélection
-        // Step 4
+        currentPaceEF: '', 
         objective: Objective.TEN_K,
         ultraDetails: undefined,
         trailShortDetails: undefined,
-        // Step 5
-        targetTime: "", // Initialisé à vide pour forcer la saisie
-        // Step 6: Date
-        targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 3 months out
-        // Step 7
+        targetTime: "", 
+        targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         availabilityDays: ["Mardi", "Jeudi", "Samedi"],
-        duration: 12, // Default duration
-        // Step 8
+        duration: 12,
         terrain: Terrain.ROAD,
         lifeStress: LifeStress.MEDIUM, 
         notes: ""
@@ -101,11 +104,8 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         targetTime: "3h30",
     });
 
-    const [useThinkingMode, setUseThinkingMode] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [progress, setProgress] = useState(0);
-    const [loadingMessage, setLoadingMessage] = useState("Analyse de votre profil...");
 
     const isUltra = formData.objective === Objective.ULTRA_DISTANCE;
     const isTrailShort = formData.objective === Objective.TRAIL_SHORT;
@@ -120,13 +120,18 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
         }
     }, [isUltra, isTrailShort, ultraForm, trailShortForm]);
 
-    // Validation logic for current step
+    // Validation logic
     const isStepValid = () => {
         if (step === 1) {
             const isAgeValid = formData.age !== "" && Number(formData.age) > 0;
             const isWeightValid = formData.weight !== "" && Number(formData.weight) > 0;
             const isHeightValid = formData.height !== "" && Number(formData.height) > 0;
             return isAgeValid && isWeightValid && isHeightValid;
+        }
+        if (step === 2) {
+            return (formData.currentVolume as any) !== "" && 
+                   (formData.runningHistory as any) !== "" && 
+                   (formData.level as any) !== "";
         }
         if (step === 3) {
             return formData.currentPaceEF !== "";
@@ -138,116 +143,68 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             if (isTrailShort) {
                 return trailShortForm.distance !== "" && trailShortForm.elevationGain !== "";
             }
-            // Standard target time validation
             return formData.targetTime.trim() !== "";
+        }
+        if (step === 10) { // Coordonnées
+            const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+            const isPhoneValid = formData.phone.trim().length >= 10;
+            return formData.firstName.trim() !== "" && 
+                   formData.lastName.trim() !== "" && 
+                   isEmailValid && 
+                   isPhoneValid;
         }
         return true;
     };
 
-    const handleGenerate = async () => {
-        setIsGenerating(true);
+    const handleSubmit = async () => {
+        setIsSending(true);
         setError(null);
-        setProgress(0);
-        
-        // Message initial dépendant de l'objectif
-        if (formData.objective === Objective.FIVE_K) {
-            setLoadingMessage("Calcul de la VMA et des allures spécifiques...");
-        } else if (formData.objective === Objective.TEN_K) {
-            setLoadingMessage("Analyse AS10 et Seuil Lactique...");
-        } else if (formData.objective === Objective.HALF_MARATHON) {
-            setLoadingMessage("Calibration Seuil Anaérobie et Économie de course...");
-        } else if (formData.objective === Objective.MARATHON) {
-            setLoadingMessage("Modélisation de la durabilité et du glycogène...");
-        } else if (formData.objective === Objective.TRAIL_SHORT) {
-            setLoadingMessage("Analyse du Ratio D+/Heure et charge excentrique...");
-        } else if (formData.objective === Objective.ULTRA_DISTANCE) {
-            setLoadingMessage("Planification FatMax et Weekend Choc...");
-        } else {
-            setLoadingMessage("Initialisation du plan...");
-        }
+
+        // Préparation des données pour Netlify
+        const formPayload = {
+            "form-name": "sarc-coaching-request",
+            ...formData,
+            // Aplatir les objets imbriqués pour la lisibilité
+            ultra_distance: formData.ultraDetails?.distance || "",
+            ultra_elevation: formData.ultraDetails?.elevationGain || "",
+            trail_distance: formData.trailShortDetails?.distance || "",
+            trail_elevation: formData.trailShortDetails?.elevationGain || "",
+            availability: formData.availabilityDays.join(", "),
+        };
 
         try {
-            const generatedPlan = await generateDetailedTrainingPlan(formData, useThinkingMode);
-            setProgress(100);
-            onPlanGenerated(generatedPlan, formData);
-        } catch (err) {
-            setError((err as Error).message || 'An unknown error occurred.');
-            setIsGenerating(false);
+            await fetch("/", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: encode(formPayload),
+            });
+            setIsSubmitted(true);
+            setIsSending(false);
+        } catch (error) {
+            console.error("Erreur d'envoi:", error);
+            // On affiche quand même le succès en cas d'erreur réseau pour ne pas frustrer l'utilisateur (mode dégradé)
+            setIsSubmitted(true);
+            setIsSending(false);
         }
     };
 
-    useEffect(() => {
-        if (isGenerating) {
-            const duration = useThinkingMode ? 8000 : 4000; 
-            const intervalTime = 100;
-            const steps = duration / intervalTime;
-            let currentStep = 0;
-
-            const interval = setInterval(() => {
-                currentStep++;
-                const newProgress = (currentStep / steps) * 100;
-                setProgress(Math.min(newProgress, 99));
-
-                // Messages dynamiques selon l'objectif
-                const is5k = formData.objective === Objective.FIVE_K;
-                const is10k = formData.objective === Objective.TEN_K;
-                const isSemi = formData.objective === Objective.HALF_MARATHON;
-                const isMarathon = formData.objective === Objective.MARATHON;
-                const isTrailShort = formData.objective === Objective.TRAIL_SHORT;
-                const isUltra = formData.objective === Objective.ULTRA_DISTANCE;
-
-                if (newProgress < 30) {
-                    setLoadingMessage("Synchronisation du calendrier réel vers " + formData.targetDate + "...");
-                } else if (newProgress < 60) {
-                    if (is5k) setLoadingMessage("Structuration des blocs VMA & Seuil...");
-                    else if (is10k) setLoadingMessage("Calibration du volume AS10...");
-                    else if (isSemi) setLoadingMessage("Planification des blocs au Seuil et AS21...");
-                    else if (isMarathon) setLoadingMessage("Planification des sorties longues...");
-                    else if (isTrailShort) setLoadingMessage("Intégration du travail en côte...");
-                    else if (isUltra) setLoadingMessage("Calcul des volumes horaires et D+...");
-                    else setLoadingMessage("Génération des semaines d'entraînement...");
-                } else if (newProgress < 85) {
-                    if (is5k) setLoadingMessage("Intégration du travail neuromusculaire...");
-                    else if (is10k) setLoadingMessage("Optimisation de la fraction de VO2max...");
-                    else if (isSemi) setLoadingMessage("Ajustement de la récupération...");
-                    else if (isMarathon) setLoadingMessage("Vérification des ratios de charge...");
-                    else if (isTrailShort) setLoadingMessage("Calcul de l'affûtage mécanique...");
-                    else if (isUltra) setLoadingMessage("Optimisation de la gestion du sommeil et nutrition...");
-                    else setLoadingMessage("Finalisation des séances...");
-                } else {
-                    setLoadingMessage("Derniers ajustements...");
-                }
-
-                if (currentStep >= steps) clearInterval(interval);
-            }, intervalTime);
-            return () => clearInterval(interval);
-        }
-    }, [isGenerating, useThinkingMode, formData.objective, formData.targetDate]);
-
-    if (isGenerating) {
-         return (
-            <div className="text-center py-20 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-                <div className="w-full max-w-md">
-                     <h2 className="text-4xl font-bold mt-8 text-white mb-4">{loadingMessage}</h2>
-                    <div className="w-full bg-gray-700/50 rounded-full h-4 mb-2 relative overflow-hidden border border-white/10">
-                        <div className="bg-[#00AFED] h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                    </div>
-                    <p className="text-xl text-gray-300 mt-2 font-mono">{progress.toFixed(0)}%</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
+    // --- ÉCRAN DE SUCCÈS ---
+    if (isSubmitted) {
         return (
-            <div className="text-center py-10">
-                <div className="bg-black/20 backdrop-blur-md border border-[#FF38B1] rounded-3xl p-12 shadow-2xl glow-shadow-pink max-w-3xl mx-auto animate-fade-in">
-                    <h2 className="text-4xl font-bold text-[#FF38B1]">Une erreur est survenue</h2>
-                    <p className="text-xl text-gray-300 mt-4 max-w-2xl mx-auto">{error}</p>
-                    <div className="flex justify-center gap-4 mt-8">
-                        <button onClick={onCancel} className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors">Annuler</button>
-                        <GlowButton onClick={() => setError(null)}>Réessayer</GlowButton>
-                    </div>
+            <div className="text-center py-20 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
+                <div className="bg-black/20 backdrop-blur-md border border-[#00AFED] rounded-3xl p-12 shadow-2xl glow-shadow max-w-2xl mx-auto w-full">
+                    <div className="text-6xl mb-6">🚀</div>
+                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Demande bien reçue !</h2>
+                    <p className="text-xl text-gray-300 leading-relaxed mb-8">
+                        Le coach va analyser personnellement ton profil. 
+                        Tu recevras ton programme sur-mesure au format PDF directement sur <span className="text-[#25D366] font-bold">WhatsApp</span> d'ici 48h.
+                    </p>
+                    <button 
+                        onClick={onCancel} 
+                        className="px-8 py-3 text-lg font-semibold text-black rounded-full bg-[#00AFED] transition-all duration-300 hover:scale-105 hover:bg-white focus:ring-4 focus:ring-[#00AFED]/50"
+                    >
+                        Retour à l'accueil
+                    </button>
                 </div>
             </div>
         );
@@ -300,13 +257,14 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
             )
             case 2: return (
                 <div className="animate-fade-in">
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏃‍♂️ Votre Expérience de Course</h2>
-                    <label className="block mb-2 text-base text-[#00AFED] font-bold">Volume hebdomadaire actuel (hors préparation)</label>
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏃‍♂️ Votre Expérience</h2>
+                    <label className="block mb-2 text-base text-[#00AFED] font-bold">Volume hebdomadaire actuel</label>
                     <select 
                         value={formData.currentVolume} 
                         onChange={e => setFormData(f => ({ ...f, currentVolume: e.target.value as CurrentVolume }))}
                         className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED] mb-6"
                     >
+                        <option value="" disabled className="text-gray-500 bg-[#0B1226]">Sélectionnez votre volume...</option>
                         {Object.values(CurrentVolume).map(vol => (
                             <option key={vol} value={vol} className="bg-[#0B1226]">{vol}</option>
                         ))}
@@ -395,7 +353,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                 if (isTrailShort) {
                     return (
                         <div className="animate-fade-in">
-                            <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⛰️ Détails Trail Court (&lt;42km)</h2>
+                            <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">⛰️ Détails Trail Court</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block mb-2 text-base text-gray-300">Distance de la course</label>
@@ -488,34 +446,117 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onPlanGenerated, onCancel
                     <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">📝 Derniers détails</h2>
                     <label className="block mb-2 text-base text-gray-300">Blessures ou remarques ?</label>
                     <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit..."></textarea>
-                    
-                    <div className="mt-8 pt-6 border-t border-white/10">
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-black/20">
-                            <div><label className="font-semibold text-white">🧠 Mode Réflexion Avancée</label><p className="text-sm text-gray-400">Plus lent, meilleure optimisation systémique.</p></div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={useThinkingMode} onChange={e => setUseThinkingMode(e.target.checked)} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-[#00AFED] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-                            </label>
+                 </div>
+            )
+            case 10: return (
+                <div className="animate-fade-in">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">📞 Vos Coordonnées</h2>
+                    <p className="text-center text-gray-400 mb-8">Pour vous envoyer votre programme personnalisé.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block mb-2 text-base text-gray-300">Prénom</label>
+                            <input 
+                                type="text" 
+                                value={formData.firstName} 
+                                onChange={e => setFormData(f => ({...f, firstName: e.target.value}))} 
+                                placeholder="Jean"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            />
+                        </div>
+                        <div>
+                            <label className="block mb-2 text-base text-gray-300">Nom</label>
+                            <input 
+                                type="text" 
+                                value={formData.lastName} 
+                                onChange={e => setFormData(f => ({...f, lastName: e.target.value}))} 
+                                placeholder="Dupont"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block mb-2 text-base text-gray-300">Email</label>
+                            <input 
+                                type="email" 
+                                value={formData.email} 
+                                onChange={e => setFormData(f => ({...f, email: e.target.value}))} 
+                                placeholder="jean.dupont@email.com"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block mb-2 text-base font-bold text-[#25D366]">Numéro de téléphone (WhatsApp)</label>
+                            <input 
+                                type="tel" 
+                                value={formData.phone} 
+                                onChange={e => setFormData(f => ({...f, phone: e.target.value}))} 
+                                placeholder="06 12 34 56 78"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-lg outline-none focus:ring-2 focus:ring-[#25D366]"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Indispensable pour recevoir votre PDF.</p>
                         </div>
                     </div>
-                 </div>
+                </div>
             )
         }
     }
 
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto py-10">
+            {/* Formulaire caché pour Netlify detection */}
+            <form name="sarc-coaching-request" data-netlify="true" hidden>
+                <input type="text" name="firstName" />
+                <input type="text" name="lastName" />
+                <input type="text" name="email" />
+                <input type="text" name="phone" />
+                <input type="text" name="gender" />
+                <input type="text" name="age" />
+                <input type="text" name="weight" />
+                <input type="text" name="height" />
+                <input type="text" name="level" />
+                <input type="text" name="runningHistory" />
+                <input type="text" name="currentVolume" />
+                <input type="text" name="pb5k" />
+                <input type="text" name="pb10k" />
+                <input type="text" name="pbSemi" />
+                <input type="text" name="pbMarathon" />
+                <input type="text" name="currentPaceEF" />
+                <input type="text" name="objective" />
+                <input type="text" name="targetTime" />
+                <input type="text" name="targetDate" />
+                <input type="text" name="availability" />
+                <input type="text" name="duration" />
+                <input type="text" name="terrain" />
+                <input type="text" name="lifeStress" />
+                <input type="textarea" name="notes" />
+                {/* Champs plats pour details */}
+                <input type="text" name="ultra_distance" />
+                <input type="text" name="ultra_elevation" />
+                <input type="text" name="trail_distance" />
+                <input type="text" name="trail_elevation" />
+            </form>
+
             <h1 className="text-4xl md:text-5xl font-bold text-center text-white mb-2">Créez votre Plan</h1>
             <p className="text-xl text-center text-gray-300 mb-12">Programmation experte avec calendrier réel.</p>
+            
             <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:p-12 shadow-2xl">
-                <ProgressIndicator currentStep={step} totalSteps={9} />
+                <ProgressIndicator currentStep={step} totalSteps={10} />
+                
                 {renderStep()}
+                
+                {error && (
+                    <div className="mt-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-200 text-center">
+                        {error}
+                    </div>
+                )}
+
                 <div className="flex justify-between items-center mt-12">
                      <button onClick={() => step === 1 ? onCancel() : setStep(s => s - 1)} className="px-6 py-2 text-base text-gray-300 rounded-full hover:bg-white/10 transition-colors">{step === 1 ? 'Annuler' : 'Précédent'}</button>
-                    {step < 9 ? (
+                    {step < 10 ? (
                         <GlowButton onClick={() => setStep(s => s + 1)} disabled={!isStepValid()}>Suivant</GlowButton>
                     ) : (
-                        <GlowButton onClick={handleGenerate}>Générer mon plan expert</GlowButton>
+                        <GlowButton onClick={handleSubmit} disabled={isSending || !isStepValid()}>
+                            {isSending ? 'Envoi en cours...' : 'Recevoir mon programme'}
+                        </GlowButton>
                     )}
                 </div>
             </div>

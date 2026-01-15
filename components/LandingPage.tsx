@@ -1,6 +1,5 @@
 
 import React, { useEffect } from 'react';
-import GeneratorPage from './GeneratorPage'; // This will now be handled by DashboardPage
 
 // SVG Icons remain the same...
 const WhatsAppIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.886-.001 2.267.655 4.398 1.908 6.161l.11.168-1.217 4.459 4.569-1.196.163.099z" /></svg>;
@@ -32,44 +31,45 @@ const useScrollAnimation = () => {
     }, []);
 };
 
-const HeroSection: React.FC<{ onAuthRequest: () => void }> = ({ onAuthRequest }) => (
-    <section className="relative min-h-screen sm:min-h-[80vh] flex items-center justify-center text-center overflow-hidden py-16 sm:py-20">
+const HeroSection: React.FC<{ onStart: () => void }> = ({ onStart }) => (
+    <section className="relative min-h-[65vh] sm:min-h-[80vh] flex items-center justify-center text-center overflow-hidden py-8 sm:py-20">
         <div className="absolute inset-0 bg-gradient-to-b from-[#0B1226] via-transparent to-[#0B1226] z-10"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] max-w-[800px] max-h-[800px] bg-[#FF38B1]/10 rounded-full blur-3xl animate-pulse"></div>
          <div className="absolute top-1/2 left-1/2 -translate-x-1/4 -translate-y-1/4 w-[60vw] h-[60vw] max-w-[600px] max-h-[600px] bg-[#00AFED]/10 rounded-full blur-3xl animate-pulse animation-delay-2000"></div>
 
-        <div className="container mx-auto px-6 relative z-20">
-            <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tight animate-fade-in" style={{ textShadow: '0 0 20px rgba(255, 255, 255, 0.3)'}}>
+        <div className="container mx-auto px-4 sm:px-6 relative z-20">
+            <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tighter leading-none sm:leading-tight animate-fade-in" style={{ textShadow: '0 0 20px rgba(255, 255, 255, 0.3)'}}>
                 ON PROGRESSE ENSEMBLE,
-                <br/>
-                KILOMÈTRE APRÈS KILOMÈTRE
+                <br className="hidden sm:block"/>
+                <span className="block sm:inline mt-2 sm:mt-0">KILOMÈTRE APRÈS </span>
+                <span className="block sm:inline">KILOMÈTRE</span>
             </h1>
-            <p className="mt-6 text-lg md:text-xl text-gray-300 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <p className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl text-gray-300 animate-fade-in" style={{ animationDelay: '0.2s' }}>
                 Performance • Convivialité • Tous niveaux
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-                <a href="https://chat.whatsapp.com/K6s9q2yMEYwL5Vk349Zx4J" target="_blank" rel="noopener noreferrer" className="px-6 py-3 text-lg font-semibold text-white rounded-full bg-green-500/80 backdrop-blur-sm border border-white/20 transition-all duration-300 ease-in-out hover:bg-green-500 flex items-center gap-2">
+            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                <a href="https://chat.whatsapp.com/K6s9q2yMEYwL5Vk349Zx4J" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-6 py-3 text-lg font-semibold text-white rounded-full bg-green-500/80 backdrop-blur-sm border border-white/20 transition-all duration-300 ease-in-out hover:bg-green-500 flex items-center justify-center gap-2">
                     <WhatsAppIcon /> Rejoindre WhatsApp
                 </a>
-                <button onClick={onAuthRequest} className="px-6 py-3 text-lg font-semibold text-black rounded-full bg-[#FF38B1] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#FF38B1]/50 glow-shadow-pink-hover">
+                <button onClick={onStart} className="w-full sm:w-auto px-6 py-3 text-lg font-semibold text-black rounded-full bg-[#FF38B1] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#FF38B1]/50 glow-shadow-pink-hover">
                     Programme Perso
                 </button>
-                 <a href="https://www.facebook.com/groups/481948624640982/" target="_blank" rel="noopener noreferrer" className="px-6 py-3 text-lg font-semibold text-white rounded-full bg-blue-600/80 backdrop-blur-sm border border-white/20 transition-all duration-300 ease-in-out hover:bg-blue-600 flex items-center gap-2">
+                 <a href="https://www.facebook.com/groups/481948624640982/" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-6 py-3 text-lg font-semibold text-white rounded-full bg-blue-600/80 backdrop-blur-sm border border-white/20 transition-all duration-300 ease-in-out hover:bg-blue-600 flex items-center justify-center gap-2">
                     <FacebookIcon /> Facebook
                 </a>
             </div>
-             <div className="mt-16 grid grid-cols-3 gap-4 sm:gap-8 text-white/80 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.6s' }}>
+             <div className="mt-10 sm:mt-16 grid grid-cols-3 gap-2 sm:gap-8 text-white/80 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.6s' }}>
                 <div className="border-t border-white/20 pt-3">
-                    <p className="text-3xl md:text-4xl font-bold text-white">400+</p>
-                    <p className="text-sm md:text-base">Coureurs</p>
+                    <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">400+</p>
+                    <p className="text-xs sm:text-base">Coureurs</p>
                 </div>
                  <div className="border-t border-white/20 pt-3">
-                    <p className="text-3xl md:text-4xl font-bold text-white">2x / semaine</p>
-                    <p className="text-sm md:text-base">Sorties Club</p>
+                    <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">2x / sem</p>
+                    <p className="text-xs sm:text-base">Sorties Club</p>
                 </div>
                  <div className="border-t border-white/20 pt-3">
-                    <p className="text-3xl md:text-4xl font-bold text-white">100%</p>
-                    <p className="text-sm md:text-base">Progression</p>
+                    <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">100%</p>
+                    <p className="text-xs sm:text-base">Progression</p>
                 </div>
             </div>
         </div>
@@ -77,32 +77,37 @@ const HeroSection: React.FC<{ onAuthRequest: () => void }> = ({ onAuthRequest })
 );
 
 const ClubInfoSection = () => (
-    <section className="py-20 md:py-24 bg-[#0B1226]">
+    <section className="py-12 sm:py-20 md:py-24 bg-[#0B1226]">
         <div className="container mx-auto px-6">
-            <div className="grid md:grid-cols-2 gap-16 md:gap-12 items-center">
-                <div className="animate-fade-in-scroll flex flex-col justify-center gap-12">
+            <div className="grid md:grid-cols-2 gap-10 md:gap-12 items-center">
+                <div className="animate-fade-in-scroll flex flex-col justify-center gap-8 md:gap-12 text-center md:text-left">
                     <div>
-                        <h2 className="text-5xl md:text-6xl font-bold text-white leading-tight">2 frères, 1 même objectif. <span className="text-[#00AFED]">Partager leur passion.</span></h2>
-                        <p className="mt-6 text-xl md:text-2xl text-gray-300 leading-relaxed">
+                        <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white leading-tight">
+                            2 frères, 1 même objectif. <br className="md:hidden" /> <span className="text-[#00AFED]">Partager leur passion.</span>
+                        </h2>
+                        <p className="mt-4 sm:mt-6 text-base sm:text-lg md:text-2xl text-gray-300 leading-relaxed">
                             Créé en septembre 2024, le Saint-Avertin Run Club rassemble plus de 400 passionnés autour d’un état d’esprit unique : progresser ensemble dans la bonne humeur, quel que soit le niveau. Chaque séance est un moment de partage, d’entraide et de dépassement collectif.
                         </p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
-                        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 glow-shadow-pink">
-                            <h3 className="text-2xl font-bold text-[#FF38B1]">Mercredi 19h00</h3>
-                            <p className="text-lg mt-1">Stade des Grands Champs</p>
-                            <p className="mt-2 text-base text-gray-400">Fractionné / Piste / VMA / Séances côtes</p>
+                    
+                    {/* Grille modifiée pour mobile : 2 colonnes, aspect carré */}
+                    <div className="grid grid-cols-2 gap-3 sm:gap-8 text-center max-w-md mx-auto sm:max-w-none">
+                        <div className="aspect-square sm:aspect-auto bg-black/20 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2 sm:p-8 glow-shadow-pink flex flex-col justify-center items-center h-full">
+                            <h3 className="text-base sm:text-2xl font-bold text-[#FF38B1] mb-1 sm:mb-2">Mercredi 19h00</h3>
+                            <p className="text-sm sm:text-lg leading-tight mt-1 font-semibold text-white">Stade des<br/>Grands Champs</p>
+                            <p className="mt-2 text-xs sm:text-base text-gray-400 leading-tight px-1">Fractionné / Piste / VMA / Séances côtes</p>
                         </div>
-                        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl p-8 glow-shadow-pink">
-                            <h3 className="text-2xl font-bold text-[#FF38B1]">Dimanche 10h00</h3>
-                            <p className="text-lg mt-1">Bois des Hâtes</p>
-                            <p className="mt-2 text-base text-gray-400">~10 km à 6:00/km, sortie conviviale</p>
+                        <div className="aspect-square sm:aspect-auto bg-black/20 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2 sm:p-8 glow-shadow-pink flex flex-col justify-center items-center h-full">
+                            <h3 className="text-base sm:text-2xl font-bold text-[#FF38B1] mb-1 sm:mb-2">Dimanche 10h00</h3>
+                            <p className="text-sm sm:text-lg leading-tight mt-1 font-semibold text-white">Bois des<br/>Hâtes</p>
+                            <p className="mt-2 text-xs sm:text-base text-gray-400 leading-tight px-1">~10 km à 6:00/km<br/>Sortie conviviale</p>
                         </div>
                     </div>
+
                 </div>
                 <div className="animate-fade-in-scroll" style={{ transitionDelay: '0.2s' }}>
                     <div className="relative h-full">
-                        <img src="https://i.postimg.cc/13tmGfDk/IMG-9732-2.jpg" alt="Fondateurs du club" className="rounded-2xl shadow-2xl w-full h-full object-cover" />
+                        <img src="https://i.postimg.cc/13tmGfDk/IMG-9732-2.jpg" alt="Fondateurs du club" className="rounded-2xl shadow-2xl w-full h-auto object-cover max-h-[500px] md:max-h-full" />
                          <div className="absolute -bottom-4 -right-4 bg-[#183C89] px-4 py-2 rounded-lg border border-white/10 text-sm font-semibold">Les Fondateurs</div>
                     </div>
                 </div>
@@ -208,18 +213,18 @@ const ContactSection = () => (
 );
 
 
-const LandingPage: React.FC<{ onAuthRequest: () => void }> = ({ onAuthRequest }) => {
+const LandingPage: React.FC<{ onStart: () => void }> = ({ onStart }) => {
     useScrollAnimation();
   return (
-    <main className="pt-16">
-      <HeroSection onAuthRequest={onAuthRequest}/>
+    <main>
+      <HeroSection onStart={onStart}/>
       <ClubInfoSection />
       <section id="generator-promo" className="py-16 bg-gradient-to-b from-transparent via-black/20 to-transparent text-center">
          <div className="container mx-auto px-6">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-2">Votre Plan d'Entraînement Évolutif</h2>
-            <p className="text-xl text-center text-gray-300 mb-8 max-w-4xl mx-auto">Un programme sur-mesure, conçu par IA, qui s'adapte à votre profil, vos chronos et vos disponibilités pour vous faire atteindre vos objectifs.</p>
-             <button onClick={onAuthRequest} className="px-8 py-4 text-xl font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#00AFED]/50 glow-shadow-hover">
-                Commencer et créer mon compte
+            <p className="text-xl text-center text-gray-300 mb-8 max-w-4xl mx-auto">Un programme sur-mesure, qui s'adapte à votre profil, vos chronos et vos disponibilités pour vous faire atteindre vos objectifs.</p>
+             <button onClick={onStart} className="px-8 py-4 text-xl font-semibold text-white rounded-full bg-[#00AFED] transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#00AFED]/50 glow-shadow-hover">
+                Commencer mon questionnaire
             </button>
          </div>
       </section>
