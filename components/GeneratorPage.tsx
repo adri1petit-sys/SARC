@@ -161,10 +161,11 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
         setError(null);
 
         // Préparation des données pour Netlify
+        // Note: 'form-name' doit correspondre à l'attribut name du <form> caché
         const formPayload = {
             "form-name": "sarc-coaching-request",
             ...formData,
-            // Aplatir les objets imbriqués pour la lisibilité
+            // Aplatir les objets imbriqués pour la lisibilité dans le panneau Netlify
             ultra_distance: formData.ultraDetails?.distance || "",
             ultra_elevation: formData.ultraDetails?.elevationGain || "",
             trail_distance: formData.trailShortDetails?.distance || "",
@@ -225,6 +226,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Âge</label>
                             <input 
+                                name="age"
                                 type="number" 
                                 value={formData.age} 
                                 onChange={e => setFormData(f => ({...f, age: e.target.value === "" ? "" : parseFloat(e.target.value)}))} 
@@ -235,6 +237,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Poids (kg)</label>
                             <input 
+                                name="weight"
                                 type="number" 
                                 value={formData.weight} 
                                 onChange={e => setFormData(f => ({...f, weight: e.target.value === "" ? "" : parseFloat(e.target.value)}))} 
@@ -245,6 +248,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Taille (cm)</label>
                             <input 
+                                name="height"
                                 type="number" 
                                 value={formData.height} 
                                 onChange={e => setFormData(f => ({...f, height: e.target.value === "" ? "" : parseFloat(e.target.value)}))} 
@@ -260,6 +264,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                     <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏃‍♂️ Votre Expérience</h2>
                     <label className="block mb-2 text-base text-[#00AFED] font-bold">Volume hebdomadaire actuel</label>
                     <select 
+                        name="currentVolume"
                         value={formData.currentVolume} 
                         onChange={e => setFormData(f => ({ ...f, currentVolume: e.target.value as CurrentVolume }))}
                         className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED] mb-6"
@@ -286,6 +291,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                          <div>
                             <label className="block mb-2 text-base text-gray-300">Allure EF actuelle</label>
                             <select
+                                name="currentPaceEF"
                                 value={formData.currentPaceEF}
                                 onChange={e => setFormData(f => ({...f, currentPaceEF: e.target.value}))}
                                 className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]"
@@ -300,15 +306,15 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">PB 10 km</label>
-                            <input type="text" value={formData.pb10k} onChange={e => setFormData(f => ({...f, pb10k: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 50:00"/>
+                            <input name="pb10k" type="text" value={formData.pb10k} onChange={e => setFormData(f => ({...f, pb10k: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 50:00"/>
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">PB Semi</label>
-                            <input type="text" value={formData.pbSemi} onChange={e => setFormData(f => ({...f, pbSemi: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 1:55:00"/>
+                            <input name="pbSemi" type="text" value={formData.pbSemi} onChange={e => setFormData(f => ({...f, pbSemi: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 1:55:00"/>
                         </div>
                         <div>
                             <label className="block mb-2 text-base text-gray-300">PB Marathon</label>
-                            <input type="text" value={formData.pbMarathon} onChange={e => setFormData(f => ({...f, pbMarathon: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 4:15:00"/>
+                            <input name="pbMarathon" type="text" value={formData.pbMarathon} onChange={e => setFormData(f => ({...f, pbMarathon: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 4:15:00"/>
                         </div>
                     </div>
                 </div>
@@ -338,11 +344,11 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                                 <div className="grid grid-cols-2 gap-4">
                                      <div>
                                         <label className="block mb-2 text-base text-gray-300">Distance</label>
-                                        <input type="text" value={ultraForm.distance} onChange={e => setUltraForm(f => ({...f, distance: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: 80 km"/>
+                                        <input name="ultra_distance" type="text" value={ultraForm.distance} onChange={e => setUltraForm(f => ({...f, distance: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: 80 km"/>
                                     </div>
                                     <div>
                                         <label className="block mb-2 text-base text-gray-300">D+</label>
-                                        <input type="text" value={ultraForm.elevationGain} onChange={e => setUltraForm(f => ({...f, elevationGain: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: 2500m"/>
+                                        <input name="ultra_elevation" type="text" value={ultraForm.elevationGain} onChange={e => setUltraForm(f => ({...f, elevationGain: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: 2500m"/>
                                     </div>
                                 </div>
                             </div>
@@ -357,11 +363,11 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block mb-2 text-base text-gray-300">Distance de la course</label>
-                                    <input type="text" value={trailShortForm.distance} onChange={e => setTrailShortForm(f => ({...f, distance: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 25 km"/>
+                                    <input name="trail_distance" type="text" value={trailShortForm.distance} onChange={e => setTrailShortForm(f => ({...f, distance: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 25 km"/>
                                 </div>
                                 <div>
                                     <label className="block mb-2 text-base text-gray-300">Dénivelé positif (D+)</label>
-                                    <input type="text" value={trailShortForm.elevationGain} onChange={e => setTrailShortForm(f => ({...f, elevationGain: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 1200m"/>
+                                    <input name="trail_elevation" type="text" value={trailShortForm.elevationGain} onChange={e => setTrailShortForm(f => ({...f, elevationGain: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 1200m"/>
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block mb-2 text-base text-gray-300">Type de terrain</label>
@@ -373,7 +379,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block mb-2 text-base text-gray-300">Temps visé (optionnel)</label>
-                                    <input type="text" value={trailShortForm.targetTime || ""} onChange={e => setTrailShortForm(f => ({...f, targetTime: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 3h30"/>
+                                    <input name="targetTime" type="text" value={trailShortForm.targetTime || ""} onChange={e => setTrailShortForm(f => ({...f, targetTime: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="ex: 3h30"/>
                                 </div>
                             </div>
                         </div>
@@ -384,6 +390,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                     <div className="animate-fade-in">
                         <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">🏆 Temps visé</h2>
                         <input 
+                            name="targetTime"
                             type="text" 
                             value={formData.targetTime} 
                             onChange={e => setFormData(f => ({...f, targetTime: e.target.value}))} 
@@ -399,6 +406,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                      <p className="text-center text-gray-400 mb-6">Sélectionnez la date de votre course. Nous calculerons automatiquement le rétro-planning.</p>
                      <div className="max-w-xs mx-auto">
                         <input 
+                            name="targetDate"
                             type="date" 
                             value={formData.targetDate} 
                             onChange={e => setFormData(f => ({...f, targetDate: e.target.value}))} 
@@ -422,7 +430,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                     </div>
                      <label className="block mb-2 text-base text-gray-300">Durée de la préparation spécifique (semaines)</label>
                     <div className="flex justify-center items-center space-x-4"><span className="text-2xl font-bold text-[#00AFED]">{formData.duration} semaines</span></div>
-                    <input type="range" min="8" max="24" value={formData.duration} onChange={e => setFormData(f => ({ ...f, duration: parseInt(e.target.value) }))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-4"/>
+                    <input name="duration" type="range" min="8" max="24" value={formData.duration} onChange={e => setFormData(f => ({ ...f, duration: parseInt(e.target.value) }))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer mt-4"/>
                     <p className="text-xs text-center text-gray-500 mt-2">Si la course est plus lointaine, des semaines de maintien seront ajoutées automatiquement avant.</p>
                 </div>
             )
@@ -445,7 +453,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                  <div className="animate-fade-in">
                     <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-8">📝 Derniers détails</h2>
                     <label className="block mb-2 text-base text-gray-300">Blessures ou remarques ?</label>
-                    <textarea value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit..."></textarea>
+                    <textarea name="notes" value={formData.notes} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-4 text-base outline-none focus:ring-2 focus:ring-[#00AFED]" placeholder="Ex: Gêne au genou droit..."></textarea>
                  </div>
             )
             case 10: return (
@@ -456,6 +464,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Prénom</label>
                             <input 
+                                name="firstName"
                                 type="text" 
                                 value={formData.firstName} 
                                 onChange={e => setFormData(f => ({...f, firstName: e.target.value}))} 
@@ -466,6 +475,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div>
                             <label className="block mb-2 text-base text-gray-300">Nom</label>
                             <input 
+                                name="lastName"
                                 type="text" 
                                 value={formData.lastName} 
                                 onChange={e => setFormData(f => ({...f, lastName: e.target.value}))} 
@@ -476,6 +486,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div className="md:col-span-2">
                             <label className="block mb-2 text-base text-gray-300">Email</label>
                             <input 
+                                name="email"
                                 type="email" 
                                 value={formData.email} 
                                 onChange={e => setFormData(f => ({...f, email: e.target.value}))} 
@@ -486,6 +497,7 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                         <div className="md:col-span-2">
                             <label className="block mb-2 text-base font-bold text-[#25D366]">Numéro de téléphone (WhatsApp)</label>
                             <input 
+                                name="phone"
                                 type="tel" 
                                 value={formData.phone} 
                                 onChange={e => setFormData(f => ({...f, phone: e.target.value}))} 
@@ -502,16 +514,28 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
 
     return (
         <div className="max-w-4xl mx-auto py-10">
-            {/* Formulaire caché pour Netlify detection */}
-            <form name="sarc-coaching-request" data-netlify="true" hidden>
+            {/* 
+               NETLIFY FORMS INTEGRATION 
+               Ce formulaire caché est détecté par le bot de build Netlify.
+               Il définit le schéma de données attendu.
+               IMPORTANT: 'form-name' caché + method='POST' + data-netlify='true'
+            */}
+            <form name="sarc-coaching-request" method="POST" data-netlify="true" hidden>
+                <input type="hidden" name="form-name" value="sarc-coaching-request" />
+                
+                {/* Identity */}
                 <input type="text" name="firstName" />
                 <input type="text" name="lastName" />
-                <input type="text" name="email" />
-                <input type="text" name="phone" />
+                <input type="email" name="email" />
+                <input type="tel" name="phone" />
+                
+                {/* Physio */}
                 <input type="text" name="gender" />
-                <input type="text" name="age" />
-                <input type="text" name="weight" />
-                <input type="text" name="height" />
+                <input type="number" name="age" />
+                <input type="number" name="weight" />
+                <input type="number" name="height" />
+                
+                {/* Profile */}
                 <input type="text" name="level" />
                 <input type="text" name="runningHistory" />
                 <input type="text" name="currentVolume" />
@@ -520,15 +544,20 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
                 <input type="text" name="pbSemi" />
                 <input type="text" name="pbMarathon" />
                 <input type="text" name="currentPaceEF" />
+                
+                {/* Objective */}
                 <input type="text" name="objective" />
                 <input type="text" name="targetTime" />
-                <input type="text" name="targetDate" />
+                <input type="date" name="targetDate" />
                 <input type="text" name="availability" />
-                <input type="text" name="duration" />
+                <input type="number" name="duration" />
+                
+                {/* Context */}
                 <input type="text" name="terrain" />
                 <input type="text" name="lifeStress" />
-                <input type="textarea" name="notes" />
-                {/* Champs plats pour details */}
+                <textarea name="notes"></textarea>
+                
+                {/* Flattened Details (Ultra / Trail) */}
                 <input type="text" name="ultra_distance" />
                 <input type="text" name="ultra_elevation" />
                 <input type="text" name="trail_distance" />
