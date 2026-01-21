@@ -161,11 +161,12 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
         setError(null);
 
         // Préparation des données pour Netlify
-        // Note: 'form-name' doit correspondre à l'attribut name du <form> caché
+        // NOTE: Le 'form-name' doit correspondre EXACTEMENT à l'attribut name du formulaire dans index.html
         const formPayload = {
             "form-name": "sarc-coaching-request",
+            "subject": `Nouveau questionnaire SARC de ${formData.firstName} ${formData.lastName}`, // Sujet pour l'email
             ...formData,
-            // Aplatir les objets imbriqués pour la lisibilité dans le panneau Netlify
+            // Aplatir les objets imbriqués pour la lisibilité
             ultra_distance: formData.ultraDetails?.distance || "",
             ultra_elevation: formData.ultraDetails?.elevationGain || "",
             trail_distance: formData.trailShortDetails?.distance || "",
@@ -514,56 +515,6 @@ const GeneratorPage: React.FC<GeneratorPageProps> = ({ onCancel }) => {
 
     return (
         <div className="max-w-4xl mx-auto py-10">
-            {/* 
-               NETLIFY FORMS INTEGRATION 
-               Ce formulaire caché est détecté par le bot de build Netlify.
-               Il définit le schéma de données attendu.
-               IMPORTANT: 'form-name' caché + method='POST' + data-netlify='true'
-            */}
-            <form name="sarc-coaching-request" method="POST" data-netlify="true" hidden>
-                <input type="hidden" name="form-name" value="sarc-coaching-request" />
-                
-                {/* Identity */}
-                <input type="text" name="firstName" />
-                <input type="text" name="lastName" />
-                <input type="email" name="email" />
-                <input type="tel" name="phone" />
-                
-                {/* Physio */}
-                <input type="text" name="gender" />
-                <input type="number" name="age" />
-                <input type="number" name="weight" />
-                <input type="number" name="height" />
-                
-                {/* Profile */}
-                <input type="text" name="level" />
-                <input type="text" name="runningHistory" />
-                <input type="text" name="currentVolume" />
-                <input type="text" name="pb5k" />
-                <input type="text" name="pb10k" />
-                <input type="text" name="pbSemi" />
-                <input type="text" name="pbMarathon" />
-                <input type="text" name="currentPaceEF" />
-                
-                {/* Objective */}
-                <input type="text" name="objective" />
-                <input type="text" name="targetTime" />
-                <input type="date" name="targetDate" />
-                <input type="text" name="availability" />
-                <input type="number" name="duration" />
-                
-                {/* Context */}
-                <input type="text" name="terrain" />
-                <input type="text" name="lifeStress" />
-                <textarea name="notes"></textarea>
-                
-                {/* Flattened Details (Ultra / Trail) */}
-                <input type="text" name="ultra_distance" />
-                <input type="text" name="ultra_elevation" />
-                <input type="text" name="trail_distance" />
-                <input type="text" name="trail_elevation" />
-            </form>
-
             <h1 className="text-4xl md:text-5xl font-bold text-center text-white mb-2">Créez votre Plan</h1>
             <p className="text-xl text-center text-gray-300 mb-12">Programmation experte avec calendrier réel.</p>
             

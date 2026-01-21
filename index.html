@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -102,6 +103,43 @@
 </script>
 </head>
 <body class="bg-[#0B1226] text-gray-200">
+  <!-- 
+    NETLIFY FORMS DETECTION
+    Ce formulaire est caché et sert uniquement de définition de schéma pour le bot Netlify.
+    Il ne sera jamais affiché à l'utilisateur.
+  -->
+  <form name="sarc-coaching-request" netlify netlify-honeypot="bot-field" hidden>
+    <input type="text" name="subject" />
+    <input type="text" name="firstName" />
+    <input type="text" name="lastName" />
+    <input type="email" name="email" />
+    <input type="tel" name="phone" />
+    <input type="text" name="gender" />
+    <input type="number" name="age" />
+    <input type="number" name="weight" />
+    <input type="number" name="height" />
+    <input type="text" name="level" />
+    <input type="text" name="runningHistory" />
+    <input type="text" name="currentVolume" />
+    <input type="text" name="pb5k" />
+    <input type="text" name="pb10k" />
+    <input type="text" name="pbSemi" />
+    <input type="text" name="pbMarathon" />
+    <input type="text" name="currentPaceEF" />
+    <input type="text" name="objective" />
+    <input type="text" name="targetTime" />
+    <input type="date" name="targetDate" />
+    <input type="text" name="availability" />
+    <input type="number" name="duration" />
+    <input type="text" name="terrain" />
+    <input type="text" name="lifeStress" />
+    <textarea name="notes"></textarea>
+    <input type="text" name="ultra_distance" />
+    <input type="text" name="ultra_elevation" />
+    <input type="text" name="trail_distance" />
+    <input type="text" name="trail_elevation" />
+  </form>
+
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
